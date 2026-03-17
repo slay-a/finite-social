@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx expo:*)",
+      "Bash(npm install:*)",
+      "Bash(tree:*)",
+      "Bash(npx tsc:*)",
+      "Bash(cat:*)",
+      "Bash(npm uninstall:*)",
+      "WebFetch(domain:neetcode.io)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(node:*)",
+      "Bash(pkill:*)",
+      "Bash(git:*)"
+    ]
+  }
+}

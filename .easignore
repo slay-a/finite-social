@@ -1,0 +1,11 @@
+# Inherit gitignore
+node_modules/
+.expo/
+dist/
+web-build/
+ios/
+android/
+.env*.local
+
+# Block macOS system folders that EAS sometimes picks up
+Library/
