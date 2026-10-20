@@ -1,9 +1,19 @@
+import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../src/context/ThemeContext';
+import { useAuth } from '../../src/context/AuthContext';
 
 export default function TabsLayout() {
   const theme = useTheme();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace('/(auth)/login');
+    }
+  }, [user, loading]);
   return (
     <Tabs
       screenOptions={{

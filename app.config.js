@@ -23,6 +23,7 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.finitesocial.app',
+      buildNumber: '7',
     },
 
     android: {
@@ -59,10 +60,9 @@ export default {
       ],
     ],
 
-    // EAS Secret EXPO_PUBLIC_OPENAI_API_KEY is injected at build time.
-    // In dev, set it in .env.local and restart the Metro server.
     extra: {
-      openAiKey: process.env.EXPO_PUBLIC_OPENAI_API_KEY ?? '',
+      supabaseUrl:  process.env.EXPO_PUBLIC_SUPABASE_URL  ?? 'https://thcvuehyblejxetazvia.supabase.co',
+      supabaseAnon: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRoY3Z1ZWh5YmxlanhldGF6dmlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTQ0ODAsImV4cCI6MjA4OTI5MDQ4MH0.6flJSrhPrJzRyOf9zTDrFem-4JWpR0yViBY6XnUdWhE',
       eas: {
         projectId: '5892e87f-2fe6-440c-b0e1-46ac4136a441',
       },

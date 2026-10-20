@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../src/context/ThemeContext';
+import { useAuth } from '../src/context/AuthContext';
 
 export const ONBOARDING_KEY = 'finitesocial:onboarded';
 
@@ -37,6 +38,7 @@ const SLIDES = [
 
 export default function OnboardingScreen() {
   const theme = useTheme();
+  const { user } = useAuth();
   const { width } = useWindowDimensions();
   const [activeIndex, setActiveIndex] = useState(0);
   const listRef = useRef<FlatList>(null);
@@ -51,7 +53,7 @@ export default function OnboardingScreen() {
 
   const finish = async () => {
     await AsyncStorage.setItem(ONBOARDING_KEY, '1');
-    router.replace('/(tabs)');
+    router.replace(user ? '/(tabs)' : '/(auth)/login');
   };
 
   const next = () => {

@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { OPENAI_API_KEY } from './config';
 import { callOpenAI } from './aiService';
+import { isSupabaseConfigured } from './supabase';
 import { NEETCODE_150, BLIND_75_SLUGS, NeetcodeTopic } from './neetcodeData';
 
 export type Difficulty = 'Easy' | 'Medium' | 'Hard';
@@ -119,10 +119,10 @@ export async function getExplanation(problem: LeetcodeProblem): Promise<Leetcode
     if (cached) return JSON.parse(cached) as LeetcodeExplanation;
   } catch {}
 
-  if (!OPENAI_API_KEY) {
+  if (!isSupabaseConfigured) {
     return {
-      what: 'Add your OpenAI API key to see AI explanations.',
-      insight: 'Set OPENAI_API_KEY in .env.local for local dev, or via EAS secrets for production.',
+      what: 'AI explanations unavailable.',
+      insight: '',
       approach: '',
       complexity: '',
     };

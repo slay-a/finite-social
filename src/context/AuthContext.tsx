@@ -1,16 +1,17 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { isSupabaseConfigured, getSupabase, fetchProfile, Profile } from '../lib/supabase';
-import { initPurchases } from '../lib/purchases';
 
 interface AuthContextValue {
   user:    User    | null;
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signUp:  (email: string, password: string) => Promise<{ error: string | null }>;
-  signIn:  (email: string, password: string) => Promise<{ error: string | null }>;
+  signUp:  (email: string, password: string) => Promise<{ error: string | null; needsConfirmation: boolean }>;
+  signIn:  (email: string, password: string) => Promise<{ error: string | null; errorType?: 'email_not_found' | 'wrong_password' | 'other' }>;
+  forgotPassword: (email: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
+  deleteAccount: () => Promise<{ error: string | null }>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -24,7 +25,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadProfile = useCallback(async (userId: string) => {
     const p = await fetchProfile(userId);
     setProfile(p);
-    initPurchases(userId);
   }, []);
 
   useEffect(() => {
@@ -59,14 +59,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const NOT_CONFIGURED = 'Supabase is not configured. Add your credentials to .env.local and restart.';
 
   const signUp = useCallback(async (email: string, password: string) => {
-    if (!isSupabaseConfigured) return { error: NOT_CONFIGURED };
-    const { error } = await getSupabase().auth.signUp({ email, password });
-    return { error: error?.message ?? null };
+    if (!isSupabaseConfigured) return { error: NOT_CONFIGURED, needsConfirmation: false };
+    const { data, error } = await getSupabase().auth.signUp({ email, password });
+    // needsConfirmation is true when Supabase requires email verification
+    // (session is null until the user clicks the link)
+    const needsConfirmation = !error && !data.session;
+    return { error: error?.message ?? null, needsConfirmation };
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
+    if (!isSupabaseConfigured) return { error: NOT_CONFIGURED, errorType: 'other' as const };
+    const sb = getSupabase();
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (!error) return { error: null };
+
+    const msg = error.message.toLowerCase();
+    if (msg.includes('invalid') || msg.includes('credentials')) {
+      // Distinguish wrong password vs unknown email by checking profiles table
+      const { data } = await sb.from('profiles').select('id').eq('email', email).maybeSingle();
+      if (data) {
+        return { error: 'Incorrect password.', errorType: 'wrong_password' as const };
+      }
+      return { error: 'No account found with that email.', errorType: 'email_not_found' as const };
+    }
+    return { error: error.message, errorType: 'other' as const };
+  }, []);
+
+  const forgotPassword = useCallback(async (email: string) => {
     if (!isSupabaseConfigured) return { error: NOT_CONFIGURED };
-    const { error } = await getSupabase().auth.signInWithPassword({ email, password });
+    const { error } = await getSupabase().auth.resetPasswordForEmail(email);
     return { error: error?.message ?? null };
   }, []);
 
@@ -74,6 +95,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isSupabaseConfigured) await getSupabase().auth.signOut();
     setSession(null);
     setProfile(null);
+  }, []);
+
+  const deleteAccount = useCallback(async (): Promise<{ error: string | null }> => {
+    if (!isSupabaseConfigured) return { error: NOT_CONFIGURED };
+    try {
+      const sb = getSupabase();
+      const { data, error: fnError } = await sb.functions.invoke('delete-account', {
+        method: 'POST',
+      });
+      if (fnError) return { error: fnError.message };
+      if (data?.error) return { error: data.error };
+
+      setSession(null);
+      setProfile(null);
+      return { error: null };
+    } catch (e) {
+      return { error: String(e) };
+    }
   }, []);
 
   const refreshProfile = useCallback(async () => {
@@ -89,6 +128,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUp,
       signIn,
       signOut,
+      deleteAccount,
+      forgotPassword,
       refreshProfile,
     }}>
       {children}

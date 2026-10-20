@@ -11,7 +11,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Article } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { callOpenAI, buildSystemPrompt, buildFirstUserMessage, ChatMessage } from '../lib/aiService';
-import { OPENAI_API_KEY } from '../lib/config';
+import { isSupabaseConfigured } from '../lib/supabase';
 
 interface Props {
   article: Article | null;
@@ -177,7 +177,7 @@ export default function ExplainSheet({ article, visible, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [latestAiIndex, setLatestAiIndex] = useState(-1);
 
-  const hasKey = !!OPENAI_API_KEY && !OPENAI_API_KEY.includes('YOUR_KEY');
+  const hasKey = isSupabaseConfigured;
   const catColor = article ? theme.categoryColors[article.category] ?? theme.primary : theme.primary;
 
   useEffect(() => {

@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl  = process.env.EXPO_PUBLIC_SUPABASE_URL  ?? '';
-const supabaseAnon = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
+// These are public credentials — anon key is safe to ship in the client.
+// Row Level Security on Supabase controls data access, not key secrecy.
+const supabaseUrl  = 'https://thcvuehyblejxetazvia.supabase.co';
+const supabaseAnon = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRoY3Z1ZWh5YmxlanhldGF6dmlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTQ0ODAsImV4cCI6MjA4OTI5MDQ4MH0.6flJSrhPrJzRyOf9zTDrFem-4JWpR0yViBY6XnUdWhE';
 
 // True only when real credentials are present
 export const isSupabaseConfigured =

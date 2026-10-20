@@ -19,7 +19,10 @@
     },
     "production": {
       "autoIncrement": true,
-      "env": {}
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://thcvuehyblejxetazvia.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRoY3Z1ZWh5YmxlanhldGF6dmlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTQ0ODAsImV4cCI6MjA4OTI5MDQ4MH0.6flJSrhPrJzRyOf9zTDrFem-4JWpR0yViBY6XnUdWhE"
+      }
     }
   },
   "submit": {

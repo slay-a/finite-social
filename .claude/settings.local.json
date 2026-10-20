@@ -12,7 +12,12 @@
       "WebFetch(domain:github.com)",
       "Bash(node:*)",
       "Bash(pkill:*)",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(npx supabase:*)",
+      "Bash(gh auth *)",
+      "Bash(xargs grep *)",
+      "Bash(grep -r -E \"sk-proj-|sk-[a-zA-Z0-9]{30,}|service_role\" supabase/functions/)",
+      "Bash(gh repo *)"
     ]
   }
 }

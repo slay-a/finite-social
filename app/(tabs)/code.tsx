@@ -8,11 +8,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 import { useTheme } from '../../src/context/ThemeContext';
 import { Theme } from '../../src/theme/themes';
-import { useSubscription } from '../../src/context/SubscriptionContext';
-import { FREE_CODE_LIMIT } from '../../src/lib/purchases';
 import {
   getProblems, getExplanation, getCuratedProblems,
   LeetcodeProblem, LeetcodeExplanation, Difficulty, ProblemSet,
@@ -452,7 +449,6 @@ function DiffPill({
 
 export default function CodeScreen() {
   const theme = useTheme();
-  const { isPro, codeCount, recordCode } = useSubscription();
   const cardHRef = useRef(0);
   const [listH, setListH] = useState(0);
   const problemsRef = useRef<LeetcodeProblem[]>([]);
@@ -518,7 +514,6 @@ export default function CodeScreen() {
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       if (viewableItems.length > 0) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        recordCode();
       }
     }
   ).current;
@@ -655,23 +650,6 @@ export default function CodeScreen() {
           <Text style={s.errorText}>{error}</Text>
           <TouchableOpacity style={s.retryBtn} onPress={() => load(problemSet, topic, difficulty, 0, true)} activeOpacity={0.8}>
             <Text style={s.retryText}>Try again</Text>
-          </TouchableOpacity>
-        </View>
-      ) : !isPro && codeCount >= FREE_CODE_LIMIT ? (
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 16 }}>
-          <Ionicons name="lock-closed-outline" size={48} color={theme.textDim} />
-          <Text style={{ fontSize: 22, fontWeight: '800', color: theme.text, textAlign: 'center' }}>
-            Daily limit reached
-          </Text>
-          <Text style={{ fontSize: 14, color: theme.textMuted, textAlign: 'center', lineHeight: 22 }}>
-            Free accounts get {FREE_CODE_LIMIT} LeetCode cards per day.{'\n'}Upgrade for unlimited practice.
-          </Text>
-          <TouchableOpacity
-            onPress={() => router.push('/paywall')}
-            activeOpacity={0.85}
-            style={{ backgroundColor: theme.primary, borderRadius: 18, paddingHorizontal: 32, paddingVertical: 14 }}
-          >
-            <Text style={{ fontSize: 16, fontWeight: '800', color: theme.bg }}>Upgrade to Pro</Text>
           </TouchableOpacity>
         </View>
       ) : (

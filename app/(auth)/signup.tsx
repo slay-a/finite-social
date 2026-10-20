@@ -35,12 +35,14 @@ export default function SignupScreen() {
     if (password !== confirm) { setError('Passwords do not match.'); return; }
     setLoading(true);
     setError(null);
-    const { error: err } = await signUp(em, password);
+    const { error: err, needsConfirmation } = await signUp(em, password);
     setLoading(false);
     if (err) {
       setError(err);
+    } else if (needsConfirmation) {
+      setSuccess(true); // show "Check your email" screen
     } else {
-      setSuccess(true);
+      router.replace('/(tabs)'); // immediately signed in — go straight to app
     }
   }, [email, password, confirm, signUp]);
 
@@ -122,7 +124,6 @@ export default function SignupScreen() {
             </View>
 
             <Text style={s.heading}>Create account</Text>
-            <Text style={s.subheading}>Free to start · Upgrade for unlimited access</Text>
 
             <View style={s.fieldGap}>
               <Text style={s.label}>Email</Text>

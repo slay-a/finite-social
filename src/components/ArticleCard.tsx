@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
   Share, Dimensions, Image,
@@ -11,6 +11,7 @@ import { Article } from '../types';
 import { Theme } from '../theme/themes';
 import { useTheme } from '../context/ThemeContext';
 import ExplainSheet from './ExplainSheet';
+import { fetchOgImage } from '../lib/ogImage';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const HERO_H = 210;
@@ -119,11 +120,26 @@ function ArticleCard({
   const s = getStyles(theme); // Cached; StyleSheet.create never runs during a re-render
   const [explainVisible, setExplainVisible] = useState(false);
   const [imgError, setImgError] = useState(false);
+  const [ogImage, setOgImage] = useState<string | undefined>(undefined);
+  const [ogImgError, setOgImgError] = useState(false);
 
   const resolvedTitle   = displayTitle   ?? article.title;
   const resolvedSummary = displaySummary ?? article.summary;
   const catColor = theme.categoryColors[article.category] ?? theme.primary;
   const hasImage = !!article.imageUrl && !imgError;
+
+  // Lazily fetch og:image when the article has no image — cached at module level
+  useEffect(() => {
+    if (hasImage || article.imageUrl) return; // already have or already errored
+    fetchOgImage(article.url).then((img) => {
+      if (img) setOgImage(img);
+    });
+  }, [article.url, article.imageUrl]);
+
+  const effectiveImage = hasImage
+    ? article.imageUrl
+    : (!ogImgError && ogImage ? ogImage : undefined);
+  const showImage = !!effectiveImage;
 
   // Memoize LinearGradient color arrays — avoids creating a new array every render
   const heroGradientColors = useMemo(
@@ -177,9 +193,17 @@ function ArticleCard({
   return (
     <View style={[s.card, { height }]}>
       <View style={s.hero}>
-        {hasImage ? (
+        {showImage ? (
           <>
-            <Image source={{ uri: article.imageUrl }} style={s.heroImage} resizeMode="cover" onError={() => setImgError(true)} />
+            <Image
+              source={{ uri: effectiveImage }}
+              style={s.heroImage}
+              resizeMode="cover"
+              onError={() => {
+                if (hasImage) setImgError(true);
+                else setOgImgError(true);
+              }}
+            />
             <LinearGradient colors={heroGradientColors} style={s.heroGradient} />
           </>
         ) : (

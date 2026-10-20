@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@700&amp;display=swap');
+    </style>
+
+    <!-- Background: deep dark with faint blue tint at center -->
+    <radialGradient id="bg" cx="50%" cy="50%" r="70%">
+      <stop offset="0%"   stop-color="#13131F"/>
+      <stop offset="100%" stop-color="#0A0A0F"/>
+    </radialGradient>
+
+    <!-- Text gradient: brand blue → orange (left → right) -->
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%"   stop-color="#58A6FF"/>
+      <stop offset="100%" stop-color="#FF8C42"/>
+    </linearGradient>
+
+    <!-- Glow behind the text -->
+    <filter id="textGlow" x="-20%" y="-40%" width="140%" height="180%">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="22" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- Clip so the gradient only fills the text shape -->
+    <clipPath id="textClip">
+      <text
+        x="512" y="530"
+        text-anchor="middle"
+        dominant-baseline="middle"
+        font-family="'Outfit', 'SF Pro Display', 'Inter', 'Helvetica Neue', sans-serif"
+        font-weight="700"
+        font-size="248"
+        letter-spacing="-6"
+      >finite</text>
+    </clipPath>
+
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+
+  <!-- Soft ambient glow behind the word -->
+  <text
+    x="512" y="530"
+    text-anchor="middle"
+    dominant-baseline="middle"
+    font-family="'Outfit', 'SF Pro Display', 'Inter', 'Helvetica Neue', sans-serif"
+    font-weight="700"
+    font-size="248"
+    letter-spacing="-6"
+    fill="#6A9FE8"
+    filter="url(#textGlow)"
+    opacity="0.22"
+  >finite</text>
+
+  <!-- Gradient fill via rect clipped to text shape -->
+  <rect width="1024" height="1024" fill="url(#textGrad)" clip-path="url(#textClip)"/>
+
+</svg>

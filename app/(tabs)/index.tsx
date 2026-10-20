@@ -12,32 +12,8 @@ import CategoryBar from '../../src/components/CategoryBar';
 import LoadingCard from '../../src/components/LoadingCard';
 import { useApp } from '../../src/context/AppContext';
 import { useTheme } from '../../src/context/ThemeContext';
-import { useSubscription } from '../../src/context/SubscriptionContext';
 import { useFeed } from '../../src/hooks/useFeed';
 import { Article } from '../../src/types';
-import { FREE_FEED_LIMIT } from '../../src/lib/purchases';
-
-function PaywallCard({ height, onUpgrade }: { height: number; onUpgrade: () => void }) {
-  const theme = useTheme();
-  return (
-    <View style={{ height, backgroundColor: theme.bg, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 16 }}>
-      <Ionicons name="lock-closed-outline" size={48} color={theme.textDim} />
-      <Text style={{ fontSize: 22, fontWeight: '800', color: theme.text, textAlign: 'center' }}>
-        You've reached the free limit
-      </Text>
-      <Text style={{ fontSize: 14, color: theme.textMuted, textAlign: 'center', lineHeight: 22 }}>
-        Free accounts get {FREE_FEED_LIMIT} articles per day.{'\n'}Upgrade for unlimited access.
-      </Text>
-      <TouchableOpacity
-        onPress={onUpgrade}
-        activeOpacity={0.85}
-        style={{ backgroundColor: theme.primary, borderRadius: 18, paddingHorizontal: 32, paddingVertical: 14 }}
-      >
-        <Text style={{ fontSize: 16, fontWeight: '800', color: theme.bg }}>Upgrade to Pro</Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
 
 function timeLabel(date: Date | null): string {
   if (!date) return '';
@@ -66,8 +42,6 @@ export default function FeedScreen() {
     bookmarkIds, readIds, toggleBookmark, markRead,
     feedEnabled,
   } = useApp();
-  const { isPro, recordFeed } = useSubscription();
-
   const { articles, isLoading, isRefreshing, error, refresh, loadMore, lastRefreshedAt } = useFeed(activeCategory);
 
   useEffect(() => {
@@ -105,32 +79,23 @@ export default function FeedScreen() {
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       if (viewableItems.length > 0) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        recordFeed();
       }
     }
   ).current;
 
-  // Stable renderItem — reads Maps/Sets via refs, paywall sentinel via __paywall flag
   const renderItem = useCallback(
-    ({ item }: { item: Article & { __paywall?: true } }) => {
-      if (item.__paywall) {
-        return (
-          <PaywallCard height={cardHRef.current} onUpgrade={() => router.push('/paywall')} />
-        );
-      }
-      return (
-        <ArticleCard
-          article={item}
-          height={cardHRef.current}
-          displayTitle={enhancedTitlesRef.current.get(item.id)}
-          displaySummary={enhancedSummariesRef.current.get(item.id)}
-          isBookmarked={bookmarkIdsRef.current.has(item.id)}
-          isRead={readIdsRef.current.has(item.id)}
-          onBookmark={handleToggleBookmark}
-          onMarkRead={handleMarkRead}
-        />
-      );
-    },
+    ({ item }: { item: Article }) => (
+      <ArticleCard
+        article={item}
+        height={cardHRef.current}
+        displayTitle={enhancedTitlesRef.current.get(item.id)}
+        displaySummary={enhancedSummariesRef.current.get(item.id)}
+        isBookmarked={bookmarkIdsRef.current.has(item.id)}
+        isRead={readIdsRef.current.has(item.id)}
+        onBookmark={handleToggleBookmark}
+        onMarkRead={handleMarkRead}
+      />
+    ),
     [handleToggleBookmark, handleMarkRead]
   );
 
@@ -141,17 +106,7 @@ export default function FeedScreen() {
     []
   );
 
-  const keyExtractor = useCallback((item: Article & { __paywall?: true }) => item.__paywall ? '__paywall__' : item.id, []);
-
-  // Limit feed to FREE_FEED_LIMIT for free users; append paywall sentinel
-  const feedData = useMemo(() => {
-    if (isPro) return articles;
-    const capped = articles.slice(0, FREE_FEED_LIMIT);
-    if (articles.length > FREE_FEED_LIMIT) {
-      return [...capped, { __paywall: true, id: '__paywall__' } as any];
-    }
-    return capped;
-  }, [articles, isPro]);
+  const keyExtractor = useCallback((item: Article) => item.id, []);
 
   const s = useMemo(() => StyleSheet.create({
     container:    { flex: 1, backgroundColor: theme.bg },
@@ -205,7 +160,7 @@ export default function FeedScreen() {
           </View>
         ) : (
           <FlatList
-            data={feedData}
+            data={articles}
             renderItem={renderItem}
             keyExtractor={keyExtractor}
             getItemLayout={getItemLayout}

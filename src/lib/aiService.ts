@@ -1,5 +1,6 @@
 import { Article } from '../types';
-import { OPENAI_API_KEY, SUMMARY_MODEL, EXPLAIN_MODEL, MAX_ENHANCE_PER_LOAD } from './config';
+import { SUMMARY_MODEL, EXPLAIN_MODEL, MAX_ENHANCE_PER_LOAD } from './config';
+import { isSupabaseConfigured } from './supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const CACHE_PREFIX = 'finitesocial:summary:';
@@ -23,31 +24,32 @@ export interface ChatMessage {
   content: string;
 }
 
+const EDGE_FN_URL = 'https://thcvuehyblejxetazvia.supabase.co/functions/v1/ai-chat';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRoY3Z1ZWh5YmxlanhldGF6dmlhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3MTQ0ODAsImV4cCI6MjA4OTI5MDQ4MH0.6flJSrhPrJzRyOf9zTDrFem-4JWpR0yViBY6XnUdWhE';
+
 export async function callOpenAI(
   messages: ChatMessage[],
   model = EXPLAIN_MODEL,
   maxTokens = 512
 ): Promise<string> {
-  if (!OPENAI_API_KEY || OPENAI_API_KEY.includes('YOUR_KEY')) {
-    throw new Error('NO_KEY');
-  }
-
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+  const res = await fetch(EDGE_FN_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      'Authorization': `Bearer ${SUPABASE_ANON}`,
     },
-    body: JSON.stringify({ model, max_tokens: maxTokens, messages }),
+    body: JSON.stringify({ messages, model, maxTokens }),
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`OpenAI ${res.status}: ${err}`);
-  }
-
   const data = await res.json();
-  return (data.choices?.[0]?.message?.content ?? '').trim();
+
+  if (data?.error === 'NOT_CONFIGURED') throw new Error('NO_KEY');
+  if (data?.openai_status === 401) throw new Error('401');
+  if (data?.openai_status === 429) throw new Error('429');
+  if (data?.error) throw new Error(`OpenAI error: ${JSON.stringify(data.error)}`);
+  if (!data?.choices?.[0]) throw new Error(`Unexpected response: ${JSON.stringify(data)}`);
+
+  return (data.choices[0].message?.content ?? '').trim();
 }
 
 // ─── Smart titles + summaries (background, developer key) ────────────────────
@@ -141,7 +143,7 @@ export async function enhanceFeedContent(
   articles: Article[],
   onUpdate: (id: string, content: Partial<EnhancedContent>) => void
 ): Promise<void> {
-  if (!OPENAI_API_KEY || OPENAI_API_KEY.includes('YOUR_KEY')) return;
+  if (!isSupabaseConfigured) return;
 
   // Enhance all articles (cache prevents redundant calls on repeat loads)
   const toEnhance = articles.slice(0, MAX_ENHANCE_PER_LOAD);
