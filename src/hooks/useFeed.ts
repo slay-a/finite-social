@@ -110,8 +110,11 @@ export function useFeed(category: Category) {
           pageRef.current = nextPage;
         }
 
-        // Enhance titles + summaries in background — doesn't block the UI
-        enhanceFeedContent(fresh, setEnhancedContent).catch(() => {});
+        // DB articles arrive pre-summarized by the summarize-articles edge
+        // function; on-device enhancement only serves the legacy fallback path.
+        if (usingFallbackRef.current) {
+          enhanceFeedContent(fresh, setEnhancedContent).catch(() => {});
+        }
 
         setState((s) => ({
           articles:        mode === 'more' ? [...s.articles, ...fresh] : fresh,
