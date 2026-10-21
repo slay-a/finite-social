@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { Article, Category } from '../types';
+import { fetchDbArticles, FeedCursor } from '../lib/feedApi';
 import { fetchHNArticles } from '../lib/hnApi';
 import { fetchDevToArticles } from '../lib/devtoApi';
 import { fetchRedditArticles } from '../lib/redditApi';
@@ -35,10 +36,42 @@ export function useFeed(category: Category) {
     lastRefreshedAt: null,
   });
 
-  const pageRef = useRef(0);
+  const cursorRef = useRef<FeedCursor | null>(null);
+  const pageRef = useRef(0); // legacy client-side path only
+  // Set when the DB has no articles yet (fresh backend) or errors — fall back
+  // to the old on-device fetchers for one release cycle.
+  const usingFallbackRef = useRef(false);
+
+  const fetchLegacyPage = useCallback(
+    async (pageNum: number): Promise<Article[]> => {
+      if (category === 'Repos') {
+        return fetchGithubTrending('Repos', pageNum);
+      }
+      const isGithubCategory = category === 'All' || category === 'Dev';
+      const [hnResult, devtoResult, redditResult, rssResult, lobstersResult, githubResult] =
+        await Promise.allSettled([
+          fetchHNArticles(category, pageNum),
+          fetchDevToArticles(category, pageNum + 1),
+          fetchRedditArticles(category, pageNum),
+          pageNum === 0 ? fetchRssArticles(category) : Promise.resolve([]),
+          fetchLobstersArticles(category, pageNum),
+          isGithubCategory ? fetchGithubTrending(category, pageNum) : Promise.resolve([]),
+        ]);
+
+      return mergeFeeds(
+        hnResult.status       === 'fulfilled' ? hnResult.value       : [],
+        devtoResult.status    === 'fulfilled' ? devtoResult.value    : [],
+        redditResult.status   === 'fulfilled' ? redditResult.value   : [],
+        rssResult.status      === 'fulfilled' ? rssResult.value      : [],
+        lobstersResult.status === 'fulfilled' ? lobstersResult.value : [],
+        githubResult.status   === 'fulfilled' ? githubResult.value   : [],
+      );
+    },
+    [category]
+  );
 
   const fetchPage = useCallback(
-    async (pageNum: number, mode: 'initial' | 'refresh' | 'more') => {
+    async (mode: 'initial' | 'refresh' | 'more') => {
       if (mode === 'initial') {
         setState((s) => ({ ...s, isLoading: true, error: null }));
       } else if (mode === 'refresh') {
@@ -50,30 +83,31 @@ export function useFeed(category: Category) {
       try {
         let fresh: Article[];
 
-        if (category === 'Repos') {
-          fresh = await fetchGithubTrending('Repos', pageNum);
+        if (!usingFallbackRef.current) {
+          try {
+            const page = await fetchDbArticles(
+              category,
+              mode === 'more' ? cursorRef.current : null,
+            );
+            if (page.articles.length === 0 && mode !== 'more') {
+              // Backend not populated yet — switch this session to the legacy path.
+              usingFallbackRef.current = true;
+              fresh = await fetchLegacyPage(0);
+              pageRef.current = 0;
+            } else {
+              fresh = page.articles;
+              cursorRef.current = page.cursor;
+            }
+          } catch {
+            if (mode === 'more') throw new Error('load more failed');
+            usingFallbackRef.current = true;
+            fresh = await fetchLegacyPage(0);
+            pageRef.current = 0;
+          }
         } else {
-          // RSS only on first page (feeds don't paginate the same way)
-          // GitHub trending mixed in for All and Dev categories
-          const isGithubCategory = category === 'All' || category === 'Dev';
-          const [hnResult, devtoResult, redditResult, rssResult, lobstersResult, githubResult] =
-            await Promise.allSettled([
-              fetchHNArticles(category, pageNum),
-              fetchDevToArticles(category, pageNum + 1),
-              fetchRedditArticles(category, pageNum),
-              pageNum === 0 ? fetchRssArticles(category) : Promise.resolve([]),
-              fetchLobstersArticles(category, pageNum),
-              isGithubCategory ? fetchGithubTrending(category, pageNum) : Promise.resolve([]),
-            ]);
-
-          const hn       = hnResult.status       === 'fulfilled' ? hnResult.value       : [];
-          const devto    = devtoResult.status     === 'fulfilled' ? devtoResult.value    : [];
-          const reddit   = redditResult.status    === 'fulfilled' ? redditResult.value   : [];
-          const rss      = rssResult.status       === 'fulfilled' ? rssResult.value      : [];
-          const lobsters = lobstersResult.status  === 'fulfilled' ? lobstersResult.value : [];
-          const github   = githubResult.status    === 'fulfilled' ? githubResult.value   : [];
-
-          fresh = mergeFeeds(hn, devto, reddit, rss, lobsters, github);
+          const nextPage = mode === 'more' ? pageRef.current + 1 : 0;
+          fresh = await fetchLegacyPage(nextPage);
+          pageRef.current = nextPage;
         }
 
         // Enhance titles + summaries in background — doesn't block the UI
@@ -88,7 +122,6 @@ export function useFeed(category: Category) {
           error:           null,
           lastRefreshedAt: mode === 'more' ? s.lastRefreshedAt : new Date(),
         }));
-        pageRef.current = pageNum;
       } catch {
         setState((s) => ({
           ...s,
@@ -99,12 +132,13 @@ export function useFeed(category: Category) {
         }));
       }
     },
-    [category]
+    [category, fetchLegacyPage, setEnhancedContent]
   );
 
   useEffect(() => {
+    cursorRef.current = null;
     pageRef.current = 0;
-    fetchPage(0, 'initial');
+    fetchPage('initial');
   }, [category, fetchPage]);
 
   // Auto-refresh on foreground return if feed is stale
@@ -116,8 +150,9 @@ export function useFeed(category: Category) {
           !s.lastRefreshedAt ||
           Date.now() - s.lastRefreshedAt.getTime() > STALE_THRESHOLD_MS;
         if (stale && !s.isLoading && !s.isRefreshing) {
+          cursorRef.current = null;
           pageRef.current = 0;
-          fetchPage(0, 'refresh');
+          fetchPage('refresh');
         }
         return s;
       });
@@ -127,13 +162,14 @@ export function useFeed(category: Category) {
   }, [fetchPage]);
 
   const refresh = useCallback(() => {
+    cursorRef.current = null;
     pageRef.current = 0;
-    fetchPage(0, 'refresh');
+    fetchPage('refresh');
   }, [fetchPage]);
 
   const loadMore = useCallback(() => {
     if (state.isLoadingMore || !state.hasMore) return;
-    fetchPage(pageRef.current + 1, 'more');
+    fetchPage('more');
   }, [state.isLoadingMore, state.hasMore, fetchPage]);
 
   return { ...state, refresh, loadMore };
