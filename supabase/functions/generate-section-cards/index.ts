@@ -19,7 +19,9 @@ const BASE_RULES = `Each content card: a punchy title (max 8 words) and a SCANNA
 
 MATH: NEVER drop, paraphrase, or summarize away a formula; the formulas ARE the material. Every key formula gets its OWN LINE as display math: a line containing only $$...$$. Inline symbols go in $...$. Use minimal LaTeX: subscripts _{}, superscripts ^{}, Greek letters (\\alpha), \\ldots for dots, \\rightarrow for arrows. Keep fractions as a/b. Never use \\text{}; write plain words outside the math instead. Never write raw underscores or carets outside $...$.
 
-A content card may OPTIONALLY include a "visual" when it genuinely clarifies the material (at most 3 visuals per section, each type only where it fits):
+SCOPE: the page text below may also contain material from NEIGHBORING sections (pages are shared). Cover ONLY the material that belongs to the named section; ignore the rest. Never make cards about the document's references, bibliography, or author biographies.
+
+VISUALS: aim for 1-2 per section whenever the material contains a process, a set of named categories or types, a comparison, dated phases, or verbatim numbers; use plain text only when nothing fits. At most 3 per section, each type only where it fits:
 - {"type":"flow","steps":["step 1","step 2","step 3"]} for a process or pipeline (3-5 short steps)
 - {"type":"cycle","steps":["phase 1","phase 2","phase 3"]} for a repeating loop (3-5 phases)
 - {"type":"compare","left":{"label":"...","points":["..."]},"right":{"label":"...","points":["..."]}} for contrasting two things (2-3 points each)
@@ -166,7 +168,7 @@ Deno.serve(async (req) => {
           { role: 'system', content: detailed ? DETAILED_PROMPT : CONCISE_PROMPT },
           {
             role: 'user',
-            content: `Section${section.label ? ` ${section.label}` : ''}: "${section.title}"\n\n${text}`,
+            content: `Named section${section.label ? ` ${section.label}` : ''}: "${section.title}" (cover only this section's material)\n\nPage text:\n${text}`,
           },
         ],
       }),

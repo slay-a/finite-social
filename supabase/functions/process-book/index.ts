@@ -170,8 +170,8 @@ async function outlineFromLlm(
         {
           role: 'system',
           content: pageCount <= 40
-            ? `You extract the structure of a short document (a paper, article, or booklet) from its full text. It has ${pageCount} pages (0-indexed; page markers like [page N] show where each page starts). Return JSON: {"sections":[{"label":"1" or null,"title":"...","page_start":N,"page_end":N,"depth":0}]}. Split it into its real logical sections in reading order (for a paper: Abstract, Introduction, each named section, Conclusion; merge tiny fragments into their neighbor). Use the actual section titles from the text. Non-overlapping 0-indexed page ranges covering the whole document. 2-12 sections.`
-            : `You extract a book's structure from its front matter / table of contents. The book has ${pageCount} pages (0-indexed). Return JSON: {"sections":[{"label":"1" or "1.2" or null,"title":"...","page_start":N,"page_end":N,"depth":0 or 1}]}. Top-level chapters (depth 0) and optionally their sub-sections (depth 1), in reading order, with non-overlapping page ranges covering the body of the book. Page numbers printed in a ToC are usually offset from physical pages; estimate the physical (0-indexed) pages as best you can. 8-40 sections total.`,
+            ? `You extract the structure of a short document (a paper, article, or booklet) from its full text. It has ${pageCount} pages (0-indexed; page markers like [page N] show where each page starts). Return JSON: {"sections":[{"label":"1","title":"...","page_start":N,"page_end":N,"depth":0}]}. Split it into its real logical sections in reading order (for a paper: Abstract, Introduction, each named section, Conclusion; merge tiny fragments into their neighbor). Use the actual section titles from the text. Number labels "1", "2", ... in order. NEVER create a section for references, bibliography, acknowledgments, or author biographies; fold a conclusion that shares a page with them into the preceding section instead. Non-overlapping 0-indexed page ranges. 2-10 sections.`
+            : `You extract a book's structure from its front matter / table of contents. The book has ${pageCount} pages (0-indexed). Return JSON: {"sections":[{"label":"1" or "1.2" or null,"title":"...","page_start":N,"page_end":N,"depth":0 or 1}]}. Top-level chapters (depth 0) and optionally their sub-sections (depth 1), in reading order, with non-overlapping page ranges covering the body of the book. NEVER create a section for references, bibliography, acknowledgments, or an index. Page numbers printed in a ToC are usually offset from physical pages; estimate the physical (0-indexed) pages as best you can. 8-40 sections total.`,
         },
         { role: 'user', content: frontText.slice(0, 48000) },
       ],
@@ -190,6 +190,8 @@ async function outlineFromLlm(
     const end = Math.max(start, Math.min(pageCount - 1, Number(s.page_end) || start));
     const depth = s.depth === 1 ? 1 : 0;
     if (!s.title) return;
+    // Defense in depth: bibliographies make useless study cards.
+    if (/\b(references|bibliography|acknowledg|about the authors?|index)\b/i.test(String(s.title))) return;
     sections.push({
       parentIdx: depth === 0 ? null : lastTopIdx,
       depth,
