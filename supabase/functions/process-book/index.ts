@@ -6,6 +6,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { getDocumentProxy, extractImages } from 'npm:unpdf@0.12.1';
 import { encode as encodePng } from 'npm:fast-png@6.2.0';
 import { verifyUser, json, corsHeaders } from '../_shared/userAuth.ts';
+import { moderateText } from '../_shared/moderation.ts';
 
 const PAGES_PER_INVOCATION = 50;
 const MAX_FIGURES_PER_PAGE = 3;
@@ -272,6 +273,21 @@ Deno.serve(async (req) => {
           parse_error: 'This looks like a scanned PDF with no text layer. Scanned books are not supported yet.',
         }).eq('id', book.id);
         return json({ done: true, failed: true, error: 'scanned_pdf' });
+      }
+
+      // Content gate: sample the opening text before any cards can be made.
+      const moderationKey = Deno.env.get('OPENAI_API_KEY');
+      if (moderationKey) {
+        const sample = pages.map((p) => p.text).join('\n').slice(0, 20_000);
+        const verdict = await moderateText(sample, moderationKey);
+        if (verdict.flagged) {
+          await sb.from('books').update({
+            status: 'failed',
+            parse_error: 'This upload was rejected: the content violates our guidelines.',
+          }).eq('id', book.id);
+          await sb.storage.from('books').remove([book.file_path]).catch(() => {});
+          return json({ done: true, failed: true, error: 'content_rejected' });
+        }
       }
     }
 

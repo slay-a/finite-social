@@ -34,14 +34,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const sb = getSupabase();
-
-    // Restore session on app start
-    sb.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      if (s?.user) loadProfile(s.user.id);
+    let sb: ReturnType<typeof getSupabase>;
+    try {
+      sb = getSupabase();
+    } catch {
       setLoading(false);
-    });
+      return;
+    }
+
+    // Restore session on app start. Failure or slowness must never trap the
+    // app on the launch screen: always resolve, with a hard timeout backstop.
+    const timeout = setTimeout(() => setLoading(false), 6000);
+    sb.auth.getSession()
+      .then(({ data: { session: s } }) => {
+        setSession(s);
+        if (s?.user) loadProfile(s.user.id);
+      })
+      .catch(() => {})
+      .finally(() => {
+        clearTimeout(timeout);
+        setLoading(false);
+      });
 
     // Listen for auth changes
     const { data: { subscription } } = sb.auth.onAuthStateChange((_event, s) => {

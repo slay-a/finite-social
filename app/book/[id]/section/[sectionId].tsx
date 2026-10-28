@@ -10,7 +10,8 @@ import { router, useLocalSearchParams } from 'expo-router';
 import SectionCard from '../../../../src/components/SectionCard';
 import { useTheme } from '../../../../src/context/ThemeContext';
 import { useSectionCards } from '../../../../src/hooks/useSectionCards';
-import { fetchSection, saveProgress } from '../../../../src/lib/booksApi';
+import { fetchSavedCardIds, fetchSection, saveProgress, setCardSaved } from '../../../../src/lib/booksApi';
+import { resolveVoice, speakCard, SpeakController, VoiceGender } from '../../../../src/lib/speech';
 import { BookSection, SectionCardData } from '../../../../src/types';
 
 export default function SectionFeedScreen() {
@@ -32,13 +33,72 @@ export default function SectionFeedScreen() {
     if (sectionId) fetchSection(sectionId).then(setSection);
   }, [sectionId]);
 
-  // Persist position; completing = reaching the last card.
+  // ── Saved cards ─────────────────────────────────────────────────────────────
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    fetchSavedCardIds().then(setSavedIds).catch(() => {});
+  }, []);
+  const handleToggleSave = useCallback((card: SectionCardData, saved: boolean) => {
+    setSavedIds((prev) => {
+      const next = new Set(prev);
+      if (saved) next.add(card.id); else next.delete(card.id);
+      return next;
+    });
+    setCardSaved(card.id, saved).catch(() => {});
+  }, []);
+  const savedIdsRef = useRef(savedIds);
+  savedIdsRef.current = savedIds;
+
+  // ── Listen mode: speaks the current card, then advances the feed ────────────
+  const listRef = useRef<FlatList<SectionCardData>>(null);
+  const [playing, setPlaying] = useState(false);
+  const [voiceGender, setVoiceGender] = useState<VoiceGender>('female');
+  const speakRef = useRef<SpeakController | null>(null);
+  const currentIndexRef = useRef(0);
+  const playingRef = useRef(false);
+  playingRef.current = playing;
+
+  const stopListening = useCallback(() => {
+    speakRef.current?.stop();
+    speakRef.current = null;
+    setPlaying(false);
+  }, []);
+
+  const speakFrom = useCallback(async (index: number) => {
+    const list = cardsRef.current;
+    if (index >= list.length) { setPlaying(false); return; }
+    listRef.current?.scrollToIndex({ index, animated: true });
+    currentIndexRef.current = index;
+    const voiceId = await resolveVoice(voiceGender);
+    speakRef.current = speakCard(list[index], voiceId, (finished) => {
+      if (finished && playingRef.current) speakFrom(index + 1);
+    });
+  }, [voiceGender]);
+
+  const toggleListening = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (playing) { stopListening(); return; }
+    setPlaying(true);
+    playingRef.current = true;
+    speakFrom(currentIndexRef.current);
+  }, [playing, stopListening, speakFrom]);
+
+  const toggleVoice = useCallback(() => {
+    Haptics.selectionAsync();
+    setVoiceGender((g) => (g === 'female' ? 'male' : 'female'));
+    if (playingRef.current) stopListening();
+  }, [stopListening]);
+
+  useEffect(() => stopListening, [stopListening]); // stop on unmount
+
+  // ── Progress ────────────────────────────────────────────────────────────────
   const maxIndexRef = useRef(0);
   const onViewableItemsChanged = useRef(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       const idx = viewableItems[0]?.index;
-      if (idx == null || !sectionId) return;
+      if (idx == null) return;
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      currentIndexRef.current = idx;
       if (idx > maxIndexRef.current) maxIndexRef.current = idx;
     },
   ).current;
@@ -67,9 +127,11 @@ export default function SectionFeedScreen() {
         index={index}
         total={cardsRef.current.length}
         sectionLabel={sectionLabel}
+        isSaved={savedIdsRef.current.has(item.id)}
+        onToggleSave={handleToggleSave}
       />
     ),
-    [sectionLabel],
+    [sectionLabel, handleToggleSave],
   );
 
   const getItemLayout = useCallback(
@@ -81,8 +143,11 @@ export default function SectionFeedScreen() {
 
   const s = useMemo(() => StyleSheet.create({
     container: { flex: 1, backgroundColor: theme.bg },
-    header:    { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 },
-    backBtn:   { margin: 8, width: 38, height: 38, borderRadius: 19, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
+    header:    { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    roundBtn:  { margin: 8, width: 38, height: 38, borderRadius: 19, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center' },
+    listenRow: { flexDirection: 'row', alignItems: 'center' },
+    voiceBtn:  { margin: 8, marginRight: 0, height: 38, borderRadius: 19, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+    voiceTxt:  { fontSize: 12, fontWeight: '700', color: theme.textSub },
     feed:      { flex: 1 },
     centered:  { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, padding: 32 },
     waitTitle: { fontSize: 16, fontWeight: '700', color: theme.text },
@@ -94,9 +159,19 @@ export default function SectionFeedScreen() {
   return (
     <View style={s.container}>
       <SafeAreaView edges={['top']} style={s.header} pointerEvents="box-none">
-        <TouchableOpacity style={s.backBtn} onPress={() => router.back()}>
+        <TouchableOpacity style={s.roundBtn} onPress={() => { stopListening(); router.back(); }}>
           <Ionicons name="chevron-back" size={20} color={theme.text} />
         </TouchableOpacity>
+        {status === 'ready' && cards.length > 0 && (
+          <View style={s.listenRow} pointerEvents="box-none">
+            <TouchableOpacity style={s.voiceBtn} onPress={toggleVoice} activeOpacity={0.8}>
+              <Text style={s.voiceTxt}>{voiceGender === 'female' ? 'Her voice' : 'His voice'}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.roundBtn} onPress={toggleListening} activeOpacity={0.8}>
+              <Ionicons name={playing ? 'pause' : 'headset-outline'} size={19} color={playing ? theme.primary : theme.text} />
+            </TouchableOpacity>
+          </View>
+        )}
       </SafeAreaView>
 
       <View style={s.feed} onLayout={onListLayout}>
@@ -122,6 +197,7 @@ export default function SectionFeedScreen() {
           </View>
         ) : (
           <FlatList
+            ref={listRef}
             data={cards}
             renderItem={renderItem}
             keyExtractor={(c) => c.id}
@@ -135,7 +211,7 @@ export default function SectionFeedScreen() {
             windowSize={3}
             maxToRenderPerBatch={2}
             initialNumToRender={2}
-            extraData={cardH}
+            extraData={[cardH, savedIds]}
           />
         )}
       </View>

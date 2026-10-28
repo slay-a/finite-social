@@ -117,6 +117,14 @@ export default function BooksScreen() {
       <SafeAreaView edges={['top']} style={s.header}>
         <View style={s.headerInner}>
           <Text style={s.logoText}>learn</Text>
+          <View style={{ flex: 1 }} />
+          <TouchableOpacity
+            onPress={() => router.push('/saved-cards')}
+            hitSlop={8}
+            style={{ marginRight: 12 }}
+          >
+            <Ionicons name="bookmark-outline" size={20} color={theme.textMuted} />
+          </TouchableOpacity>
           <TouchableOpacity style={s.addBtn} onPress={handleAddBook} disabled={busy} activeOpacity={0.8}>
             {busy
               ? <ActivityIndicator size="small" color={theme.bg} />

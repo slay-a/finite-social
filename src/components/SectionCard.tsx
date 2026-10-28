@@ -13,6 +13,8 @@ interface Props {
   index: number;
   total: number;
   sectionLabel: string;
+  isSaved?: boolean;
+  onToggleSave?: (card: SectionCardData, saved: boolean) => void;
 }
 
 type Block = { kind: 'paragraph' | 'bullet' | 'math'; text: string };
@@ -220,7 +222,7 @@ function Quiz({ quiz }: { quiz: CardQuiz }) {
 
 // ─── Card ─────────────────────────────────────────────────────────────────────
 
-export default function SectionCard({ card, height, index, total, sectionLabel }: Props) {
+export default function SectionCard({ card, height, index, total, sectionLabel, isSaved, onToggleSave }: Props) {
   const theme = useTheme();
   const { width: screenW } = useWindowDimensions();
   const blocks = useMemo(() => parseBody(card.body), [card.body]);
@@ -297,18 +299,35 @@ export default function SectionCard({ card, height, index, total, sectionLabel }
 
       <View style={s.footer}>
         <Text style={s.counter}>{index + 1} / {total}</Text>
-        {card.kind !== 'figure' && (
-          <TouchableOpacity
-            style={s.explainBtn}
-            activeOpacity={0.8}
-            onPress={async () => {
-              await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              setExplainVisible(true);
-            }}
-          >
-            <Text style={s.explainTxt}>Explain</Text>
-          </TouchableOpacity>
-        )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          {onToggleSave && (
+            <TouchableOpacity
+              hitSlop={8}
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                onToggleSave(card, !isSaved);
+              }}
+            >
+              <Ionicons
+                name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                size={18}
+                color={isSaved ? theme.primary : theme.textDim}
+              />
+            </TouchableOpacity>
+          )}
+          {card.kind !== 'figure' && (
+            <TouchableOpacity
+              style={s.explainBtn}
+              activeOpacity={0.8}
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                setExplainVisible(true);
+              }}
+            >
+              <Text style={s.explainTxt}>Explain</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <Text style={s.counter}>{index + 1 < total ? 'swipe up' : 'section done'}</Text>
       </View>
 

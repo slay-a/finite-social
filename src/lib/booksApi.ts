@@ -140,6 +140,56 @@ export async function regenerateBook(bookId: string, cardMode: BookCardMode): Pr
   if (!data?.ok) throw new Error(data?.error ?? 'Regenerate failed');
 }
 
+// ─── Saved cards ──────────────────────────────────────────────────────────────
+
+export async function fetchSavedCardIds(): Promise<Set<string>> {
+  const { data } = await getSupabase().from('saved_cards').select('card_id');
+  return new Set((data ?? []).map((r: any) => r.card_id as string));
+}
+
+export async function setCardSaved(cardId: string, saved: boolean): Promise<void> {
+  const sb = getSupabase();
+  if (saved) {
+    const userId = (await sb.auth.getUser()).data.user?.id;
+    if (!userId) return;
+    await sb.from('saved_cards').upsert({ owner_id: userId, card_id: cardId });
+  } else {
+    await sb.from('saved_cards').delete().eq('card_id', cardId);
+  }
+}
+
+export interface SavedCardRow {
+  card: SectionCardData;
+  sectionTitle: string;
+  sectionId: string;
+  bookId: string;
+  bookTitle: string;
+}
+
+export async function fetchSavedCards(): Promise<SavedCardRow[]> {
+  const { data, error } = await getSupabase()
+    .from('saved_cards')
+    .select('created_at, section_cards(id, section_id, order_index, kind, title, body, visual, quiz, figure, book_sections(id, title, book_id, books(id, title)))')
+    .order('created_at', { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []).flatMap((r: any) => {
+    const c = r.section_cards;
+    const sec = c?.book_sections;
+    if (!c || !sec) return [];
+    return [{
+      card: {
+        id: c.id, sectionId: c.section_id, orderIndex: c.order_index,
+        kind: c.kind ?? 'content', title: c.title, body: c.body,
+        visual: c.visual ?? null, quiz: c.quiz ?? null, figure: c.figure ?? null,
+      },
+      sectionTitle: sec.title,
+      sectionId: sec.id,
+      bookId: sec.book_id,
+      bookTitle: sec.books?.title ?? 'Book',
+    }];
+  });
+}
+
 // ─── Reading progress ─────────────────────────────────────────────────────────
 
 export async function fetchProgress(sectionIds: string[]): Promise<Map<string, { lastCardIndex: number; completed: boolean }>> {
