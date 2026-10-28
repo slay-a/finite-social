@@ -23,6 +23,10 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.finitesocial.app',
+      infoPlist: {
+        // Only standard HTTPS — skips the export-compliance question per build.
+        ITSAppUsesNonExemptEncryption: false,
+      },
     },
 
     android: {
