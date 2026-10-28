@@ -6,7 +6,7 @@ export default {
     name: 'Finite Social',
     slug: 'finite-social',
     scheme: 'finitesocial',
-    version: '1.0.0',
+    version: '1.1.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
 
@@ -23,7 +23,6 @@ export default {
     ios: {
       supportsTablet: true,
       bundleIdentifier: 'com.finitesocial.app',
-      buildNumber: '7',
     },
 
     android: {
