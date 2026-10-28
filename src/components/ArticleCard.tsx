@@ -40,14 +40,14 @@ function getStyles(theme: Theme) {
     heroTime:        { fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
     readBadge:       { backgroundColor: 'rgba(57,211,83,0.75)', borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 },
     readBadgeText:   { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 0.3 },
-    body:            { flex: 1, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8, gap: 8 },
+    body:            { flex: 1, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8, gap: 8, overflow: 'hidden' },
     title:           { fontSize: 20, fontWeight: '800', color: theme.text, lineHeight: 27, letterSpacing: -0.3 },
     titleRead:       { fontSize: 20, fontWeight: '800', color: theme.text, lineHeight: 27, letterSpacing: -0.3, opacity: 0.55 },
     summary:         { fontSize: 15, color: theme.textSub, lineHeight: 23, flex: 1 },
     tagsRow:         { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 2 },
     tagChip:         { backgroundColor: theme.surface, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
     tagText:         { fontSize: 11, color: theme.textMuted },
-    bottomBar:       { borderTopWidth: 1, borderTopColor: theme.border, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
+    bottomBar:       { borderTopWidth: 1, borderTopColor: theme.border, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
     meta:            { flex: 1, gap: 2 },
     metaAuthor:      { fontSize: 12, fontWeight: '600', color: theme.textSub },
     metaStats:       { flexDirection: 'row', gap: 8 },
@@ -183,6 +183,11 @@ function ArticleCard({
     catch { return ''; }
   }, [article.url]);
 
+  // Fit the summary to what this device's card can actually hold, so the
+  // bottom bar is never pushed off or clipped. Fixed chrome: hero 210, title
+  // ~2 lines 54, tags ~32, bottom bar ~58, body padding/gaps ~40.
+  const summaryLines = Math.max(3, Math.floor((height - HERO_H - 54 - 32 - 58 - 40) / 23));
+
   const handleRead = useCallback(async () => {
     onMarkRead(article.id);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -261,8 +266,7 @@ function ArticleCard({
 
       <View style={s.body}>
         <Text style={alreadyRead ? s.titleRead : s.title} numberOfLines={2}>{resolvedTitle}</Text>
-        {/* Capped so a long summary can never push the bottom bar off the card */}
-        <Text style={s.summary} numberOfLines={9}>{resolvedSummary}</Text>
+        <Text style={s.summary} numberOfLines={summaryLines}>{resolvedSummary}</Text>
         {article.tags.length > 0 && (
           <View style={s.tagsRow}>
             {article.tags.slice(0, 3).map((tag) => (

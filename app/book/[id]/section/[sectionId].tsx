@@ -108,7 +108,7 @@ export default function SectionFeedScreen() {
             </Text>
             {status === 'generating' && (
               <Text style={s.waitText}>
-                First visit to a section takes a few seconds — after that it's instant.
+                First visit to a section takes a few seconds. After that it loads instantly.
               </Text>
             )}
           </View>

@@ -97,7 +97,7 @@ function LeetCodeChatSheet({ problem, explanation, visible, onClose }: ChatSheet
       Animated.spring(slideAnim, { toValue: 0, tension: 65, friction: 11, useNativeDriver: true }).start();
       if (messages.length === 0) {
         const greeting = explanation
-          ? `Ready to help with **${problem.title}**! I can see the key insight is: ${explanation.insight} — ask me for a hint, pseudocode, or a code template.`
+          ? `Ready to help with **${problem.title}**! I can see the key insight is: ${explanation.insight}. Ask me for a hint, pseudocode, or a code template.`
           : `Let's work through **${problem.title}** (${problem.difficulty}). Ask me for a hint, the approach, or a code template!`;
         setMessages([{ role: 'assistant', content: greeting }]);
       }
@@ -135,7 +135,7 @@ function LeetCodeChatSheet({ problem, explanation, visible, onClose }: ChatSheet
       setChatError(
         msg.includes('NO_KEY') ? 'API key not configured.' :
         msg.includes('401')    ? 'Invalid API key.' :
-        msg.includes('429')    ? 'Rate limit hit — try again shortly.' :
+        msg.includes('429')    ? 'Rate limit hit. Try again shortly.' :
         'Could not connect. Check your connection.'
       );
     } finally {

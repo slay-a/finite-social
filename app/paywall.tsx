@@ -12,7 +12,7 @@ import { purchasePro, restorePurchases, PRO_MONTHLY_PRICE, PRO_ANNUAL_PRICE } fr
 import { getSupabase, isSupabaseConfigured } from '../src/lib/supabase';
 
 const FEATURES: { icon: React.ComponentProps<typeof Ionicons>['name']; text: string }[] = [
-  { icon: 'newspaper-outline',   text: 'Unlimited news feed — no daily cap' },
+  { icon: 'newspaper-outline',   text: 'Unlimited news feed, no daily cap' },
   { icon: 'code-slash-outline',  text: 'Unlimited LeetCode swipe mode' },
   { icon: 'bulb-outline',        text: 'Unlimited AI explanations & coach' },
   { icon: 'bookmark-outline',    text: 'Sync bookmarks across devices' },

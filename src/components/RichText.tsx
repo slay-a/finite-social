@@ -34,6 +34,11 @@ const COMMANDS: Record<string, string> = {
   rightarrow: '→', to: '→', leftarrow: '←', Rightarrow: '⇒', mapsto: '↦',
   sum: 'Σ', prod: 'Π', int: '∫', sqrt: '√', partial: '∂', nabla: '∇', ell: 'ℓ',
   log: 'log', ln: 'ln', max: 'max', min: 'min', exp: 'exp',
+  // Structural commands that should disappear or become plain glyphs: without
+  // these, "\text{yes}" rendered as "textyes" and "\ldots" as "ldots".
+  text: '', mathrm: '', mathbf: '', mathit: '', operatorname: '',
+  ldots: '…', dots: '…', cdots: '⋯', vdots: '⋮', ddots: '⋱',
+  quad: ' ', qquad: '  ', mid: '|', vert: '|',
 };
 
 function mapChars(body: string, table: Record<string, string>): string {

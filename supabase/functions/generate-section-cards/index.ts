@@ -11,9 +11,13 @@ const MAX_INPUT_CHARS_CONCISE = 12_000;
 const MAX_INPUT_CHARS_DETAILED = 24_000;
 const MAX_FIGURE_CARDS = 6;
 
-const BASE_RULES = `Each content card: a punchy title (max 8 words) and a body of 60-130 words. The body may use simple markdown: **bold** for key terms, and short bullet lists with "- ". No headings, no emoji, no "In this section". Never use em dashes or en dashes; use commas or periods. Write like an excellent teacher: concrete, direct, zero filler.
+const BASE_RULES = `Each content card: a punchy title (max 8 words) and a SCANNABLE body, max 90 words. This renders on a phone screen, so layout is everything:
+- One idea per card. Split dense material across cards instead of packing one.
+- Prefer a one-sentence lead line, then 2-4 short bullets. Every bullet starts with "- " at the START OF ITS OWN LINE (separate lines with \\n). NEVER run bullets inline after a colon.
+- Paragraphs: max 2 sentences, separated by a blank line.
+- **bold** only for key terms. No headings, no emoji, no "In this section". Never use em dashes or en dashes; use commas or periods. Write like an excellent teacher: concrete, direct, zero filler.
 
-MATH: write every formula or symbol inline between dollar signs using minimal LaTeX, e.g. $s_{i+1}$, $x^2$, $\\alpha$, $O(n \\log n)$. Supported: subscripts _{}, superscripts ^{}, Greek letters, and plain operators. Keep fractions as a/b. Never write raw underscores or carets outside $...$.
+MATH: NEVER drop, paraphrase, or summarize away a formula; the formulas ARE the material. Every key formula gets its OWN LINE as display math: a line containing only $$...$$. Inline symbols go in $...$. Use minimal LaTeX: subscripts _{}, superscripts ^{}, Greek letters (\\alpha), \\ldots for dots, \\rightarrow for arrows. Keep fractions as a/b. Never use \\text{}; write plain words outside the math instead. Never write raw underscores or carets outside $...$.
 
 A content card may OPTIONALLY include a "visual" when it genuinely clarifies the material (at most 3 visuals per section, each type only where it fits):
 - {"type":"flow","steps":["step 1","step 2","step 3"]} for a process or pipeline (3-5 short steps)

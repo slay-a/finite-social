@@ -22,7 +22,7 @@ function statusLabel(book: Book): string {
 
 export default function BooksScreen() {
   const theme = useTheme();
-  const { books, isLoading, upload, startUpload, reload, dismissError, removeBook, regenerate } = useBooks();
+  const { books, isLoading, upload, startUpload, reload, dismissError, removeBook, regenerate, rename } = useBooks();
 
   useFocusEffect(React.useCallback(() => { reload(); }, [reload]));
 
@@ -70,6 +70,21 @@ export default function BooksScreen() {
       `Cards: ${book.cardMode === 'detailed' ? 'Everything' : 'Concise'}`,
       [
         {
+          text: 'Rename',
+          onPress: () => {
+            Alert.prompt(
+              'Rename book',
+              undefined,
+              [
+                { text: 'Save', onPress: (title?: string) => { if (title?.trim()) rename(book, title.trim()); } },
+                { text: 'Cancel', style: 'cancel' },
+              ],
+              'plain-text',
+              book.title,
+            );
+          },
+        },
+        {
           text: `Regenerate as ${otherLabel}`,
           onPress: () => {
             Alert.alert(
@@ -95,7 +110,7 @@ export default function BooksScreen() {
         { text: 'Cancel', style: 'cancel' },
       ],
     );
-  }, [regenerate, removeBook]);
+  }, [regenerate, removeBook, rename]);
 
   return (
     <View style={s.container}>

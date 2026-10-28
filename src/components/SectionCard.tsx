@@ -3,8 +3,9 @@ import { Image, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } 
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import { CardQuiz, CardVisual, SectionCardData } from '../types';
-import RichText from './RichText';
+import { Article, CardQuiz, CardVisual, SectionCardData } from '../types';
+import ExplainSheet from './ExplainSheet';
+import RichText, { renderMath } from './RichText';
 
 interface Props {
   card: SectionCardData;
@@ -14,18 +15,27 @@ interface Props {
   sectionLabel: string;
 }
 
-type Block = { kind: 'paragraph' | 'bullet'; text: string };
+type Block = { kind: 'paragraph' | 'bullet' | 'math'; text: string };
+
+// The model sometimes packs bullets inline after a colon or sentence. Break
+// them out so the card reads as a list, never a lump.
+function normalizeBody(body: string): string {
+  return body
+    .replace(/([.:;)])\s+-\s+(?=\S)/g, '$1\n- ')
+    .replace(/\s+-\s+(?=\*\*)/g, '\n- ');
+}
 
 function parseBody(body: string): Block[] {
-  return body
+  return normalizeBody(body)
     .split(/\n+/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line): Block =>
-      line.startsWith('- ')
-        ? { kind: 'bullet', text: line.slice(2) }
-        : { kind: 'paragraph', text: line },
-    );
+    .map((line): Block => {
+      const displayMath = line.match(/^\$\$(.+)\$\$$/);
+      if (displayMath) return { kind: 'math', text: renderMath(displayMath[1]) };
+      if (line.startsWith('- ')) return { kind: 'bullet', text: line.slice(2) };
+      return { kind: 'paragraph', text: line };
+    });
 }
 
 // ─── Visuals ──────────────────────────────────────────────────────────────────
@@ -209,17 +219,35 @@ export default function SectionCard({ card, height, index, total, sectionLabel }
   const theme = useTheme();
   const { width: screenW } = useWindowDimensions();
   const blocks = useMemo(() => parseBody(card.body), [card.body]);
+  const [explainVisible, setExplainVisible] = useState(false);
+
+  // ExplainSheet only reads title/summary, so a study card wears the Article shape.
+  const explainArticle = useMemo((): Article => ({
+    id: card.id,
+    source: 'rss',
+    title: card.kind === 'quiz' && card.quiz ? card.quiz.question : card.title,
+    summary: card.body,
+    url: '',
+    author: '',
+    tags: [],
+    category: 'Dev',
+    publishedAt: new Date().toISOString(),
+  }), [card]);
 
   const s = useMemo(() => StyleSheet.create({
     card:      { height, paddingHorizontal: 24, paddingVertical: 32, justifyContent: 'center', backgroundColor: theme.bg },
+    content:   { overflow: 'hidden', flexShrink: 1 },
     label:     { fontSize: 12, fontWeight: '700', color: theme.primary, letterSpacing: 1, textTransform: 'uppercase', marginBottom: 10 },
     title:     { fontSize: 26, fontWeight: '800', color: theme.text, letterSpacing: -0.5, marginBottom: 18, lineHeight: 32 },
-    paragraph: { fontSize: 16, lineHeight: 25, color: theme.textSub, marginBottom: 12 },
-    bulletRow: { flexDirection: 'row', marginBottom: 8, paddingRight: 8 },
+    paragraph: { fontSize: 16, lineHeight: 25, color: theme.textSub, marginBottom: 14 },
+    mathLine:  { fontSize: 20, lineHeight: 30, color: theme.text, fontStyle: 'italic', textAlign: 'center', marginVertical: 10 },
+    bulletRow: { flexDirection: 'row', marginBottom: 10, paddingRight: 8 },
     bulletDot: { fontSize: 16, lineHeight: 25, color: theme.primary, marginRight: 8 },
     bold:      { fontWeight: '700', color: theme.text },
-    footer:    { position: 'absolute', bottom: 28, left: 24, right: 24, flexDirection: 'row', justifyContent: 'space-between' },
+    footer:    { position: 'absolute', bottom: 28, left: 24, right: 24, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
     counter:   { fontSize: 12, color: theme.textDim, fontWeight: '600' },
+    explainBtn:{ backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 7 },
+    explainTxt:{ fontSize: 12, fontWeight: '700', color: theme.textSub },
     figImage:  { width: '100%', borderRadius: 14, backgroundColor: '#fff' },
     figCaption:{ marginTop: 12, fontSize: 13, color: theme.textMuted, textAlign: 'center' },
   }), [theme, height]);
@@ -231,37 +259,59 @@ export default function SectionCard({ card, height, index, total, sectionLabel }
 
   return (
     <View style={s.card}>
-      <Text style={s.label}>{sectionLabel}</Text>
+      <View style={s.content}>
+        <Text style={s.label} numberOfLines={2}>{sectionLabel}</Text>
 
-      {card.kind === 'quiz' && card.quiz ? (
-        <Quiz quiz={card.quiz} />
-      ) : card.kind === 'figure' && figure?.signedUrl ? (
-        <>
-          <RichText text={card.title} style={s.title} boldStyle={s.bold} />
-          <Image source={{ uri: figure.signedUrl }} style={[s.figImage, { height: figHeight }]} resizeMode="contain" />
-          <Text style={s.figCaption}>Straight from the book, page {figure.page + 1}.</Text>
-        </>
-      ) : (
-        <>
-          <RichText text={card.title} style={s.title} boldStyle={s.bold} />
-          {blocks.map((block, i) =>
-            block.kind === 'bullet' ? (
-              <View key={i} style={s.bulletRow}>
-                <Text style={s.bulletDot}>•</Text>
-                <RichText text={block.text} style={s.paragraph} boldStyle={s.bold} />
-              </View>
-            ) : (
-              <RichText key={i} text={block.text} style={s.paragraph} boldStyle={s.bold} />
-            ),
-          )}
-          {card.visual ? <Visual visual={card.visual} /> : null}
-        </>
-      )}
+        {card.kind === 'quiz' && card.quiz ? (
+          <Quiz quiz={card.quiz} />
+        ) : card.kind === 'figure' && figure?.signedUrl ? (
+          <>
+            <RichText text={card.title} style={s.title} boldStyle={s.bold} />
+            <Image source={{ uri: figure.signedUrl }} style={[s.figImage, { height: figHeight }]} resizeMode="contain" />
+            <Text style={s.figCaption}>Straight from the book, page {figure.page + 1}.</Text>
+          </>
+        ) : (
+          <>
+            <RichText text={card.title} style={s.title} boldStyle={s.bold} />
+            {blocks.map((block, i) =>
+              block.kind === 'bullet' ? (
+                <View key={i} style={s.bulletRow}>
+                  <Text style={s.bulletDot}>•</Text>
+                  <RichText text={block.text} style={[s.paragraph, { marginBottom: 0 }]} boldStyle={s.bold} />
+                </View>
+              ) : block.kind === 'math' ? (
+                <Text key={i} style={s.mathLine}>{block.text}</Text>
+              ) : (
+                <RichText key={i} text={block.text} style={s.paragraph} boldStyle={s.bold} />
+              ),
+            )}
+            {card.visual ? <Visual visual={card.visual} /> : null}
+          </>
+        )}
+      </View>
 
       <View style={s.footer}>
         <Text style={s.counter}>{index + 1} / {total}</Text>
+        {card.kind !== 'figure' && (
+          <TouchableOpacity
+            style={s.explainBtn}
+            activeOpacity={0.8}
+            onPress={async () => {
+              await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setExplainVisible(true);
+            }}
+          >
+            <Text style={s.explainTxt}>Explain</Text>
+          </TouchableOpacity>
+        )}
         <Text style={s.counter}>{index + 1 < total ? 'swipe up' : 'section done'}</Text>
       </View>
+
+      <ExplainSheet
+        article={explainArticle}
+        visible={explainVisible}
+        onClose={() => setExplainVisible(false)}
+      />
     </View>
   );
 }

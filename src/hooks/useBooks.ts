@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Book, BookCardMode } from '../types';
-import { deleteBook, fetchBooks, pickPdf, processBook, regenerateBook, uploadBook } from '../lib/booksApi';
+import { deleteBook, fetchBooks, pickPdf, processBook, regenerateBook, renameBook, uploadBook } from '../lib/booksApi';
 
 export interface UploadState {
   phase: 'idle' | 'uploading' | 'parsing' | 'error';
@@ -74,6 +74,12 @@ export function useBooks() {
     await reload();
   }, [reload]);
 
+  const rename = useCallback(async (book: Book, title: string) => {
+    setBooks((bs) => bs.map((b) => (b.id === book.id ? { ...b, title } : b))); // optimistic
+    try { await renameBook(book.id, title); } catch { /* reload restores */ }
+    await reload();
+  }, [reload]);
+
   const regenerate = useCallback(async (book: Book, mode: BookCardMode) => {
     try {
       await regenerateBook(book.id, mode);
@@ -83,5 +89,5 @@ export function useBooks() {
     await reload();
   }, [reload]);
 
-  return { books, isLoading, upload, startUpload, reload, dismissError, removeBook, regenerate };
+  return { books, isLoading, upload, startUpload, reload, dismissError, removeBook, regenerate, rename };
 }

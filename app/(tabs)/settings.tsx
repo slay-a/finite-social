@@ -307,7 +307,7 @@ export default function ProfileScreen() {
           <Text style={s.sectionTitle}>About</Text>
           <View style={s.aboutCard}>
             <Text style={s.aboutAppName}>Finite Social</Text>
-            <Text style={s.aboutTagline}>Stay in the loop — without the noise</Text>
+            <Text style={s.aboutTagline}>Stay in the loop, without the noise</Text>
             <Text style={s.aboutDesc}>
               Finite Social brings together the best of tech, culture, and trending content into one clean, fast feed. AI-enhanced summaries, smart headlines, and 14 live sources.
             </Text>

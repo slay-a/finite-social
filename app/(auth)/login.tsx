@@ -139,7 +139,7 @@ export default function LoginScreen() {
             <View style={s.inner}>
               <View style={s.brand}>
                 <Text style={s.logo}>finite</Text>
-                <Text style={s.tagline}>Stay in the loop — without the noise</Text>
+                <Text style={s.tagline}>Stay in the loop, without the noise</Text>
               </View>
 
               <Text style={s.heading}>Reset password</Text>
@@ -197,7 +197,7 @@ export default function LoginScreen() {
           <View style={s.inner}>
             <View style={s.brand}>
               <Text style={s.logo}>finite</Text>
-              <Text style={s.tagline}>Stay in the loop — without the noise</Text>
+              <Text style={s.tagline}>Stay in the loop, without the noise</Text>
             </View>
 
             <Text style={s.heading}>Sign in</Text>

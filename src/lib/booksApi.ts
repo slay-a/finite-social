@@ -124,6 +124,13 @@ export async function deleteBook(book: Book & { id: string }): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+export async function renameBook(bookId: string, title: string): Promise<void> {
+  const trimmed = title.trim().slice(0, 120);
+  if (!trimmed) return;
+  const { error } = await getSupabase().from('books').update({ title: trimmed }).eq('id', bookId);
+  if (error) throw new Error(error.message);
+}
+
 export async function regenerateBook(bookId: string, cardMode: BookCardMode): Promise<void> {
   const { data, error } = await getSupabase().functions.invoke<{ ok?: boolean; error?: string }>(
     'regenerate-book',
