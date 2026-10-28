@@ -58,6 +58,14 @@ export function renderMath(src: string): string {
         i += 1 + m[0].length;
         continue;
       }
+      const next = src[i + 1];
+      // Spacing commands (\, \; \: \!) vanish; escaped literals keep the char.
+      if (next === ',' || next === ';' || next === ':' || next === '!') { i += 2; continue; }
+      if (next === '{' || next === '}' || next === '$' || next === '\\' || next === '%' || next === '&') {
+        out += next;
+        i += 2;
+        continue;
+      }
       i++;
       continue;
     }
@@ -89,11 +97,22 @@ interface Segment {
   math: boolean;
 }
 
+/**
+ * A line that is one formula (allowing $$ display delimiters and trailing
+ * punctuation) renders as display math. Returns null when it is ordinary text.
+ */
+export function asDisplayMath(line: string): string | null {
+  const m = line.trim().match(/^\${1,2}(.+?)\${1,2}([.,;:])?$/);
+  if (!m || m[1].includes('$')) return null;
+  return renderMath(m[1]) + (m[2] ?? '');
+}
+
 /** Splits a line on **bold** and $math$ markers. */
 export function parseInline(line: string): Segment[] {
   const segments: Segment[] = [];
-  // Tokenize on $...$ first, then **...** within the non-math parts.
-  const mathParts = line.split(/(\$[^$]+\$)/g);
+  // $$ inline is display syntax misused inline; treat it as $ so delimiters
+  // never leak onto the screen. Then tokenize $...$ first, **bold** second.
+  const mathParts = line.replace(/\$\$/g, '$').split(/(\$[^$]+\$)/g);
   for (const part of mathParts) {
     if (part.startsWith('$') && part.endsWith('$') && part.length > 2) {
       segments.push({ text: renderMath(part.slice(1, -1)), bold: false, math: true });

@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
 import { Article, CardQuiz, CardVisual, SectionCardData } from '../types';
 import ExplainSheet from './ExplainSheet';
-import RichText, { renderMath } from './RichText';
+import RichText, { asDisplayMath } from './RichText';
 
 interface Props {
   card: SectionCardData;
@@ -31,9 +31,14 @@ function parseBody(body: string): Block[] {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line): Block => {
-      const displayMath = line.match(/^\$\$(.+)\$\$$/);
-      if (displayMath) return { kind: 'math', text: renderMath(displayMath[1]) };
-      if (line.startsWith('- ')) return { kind: 'bullet', text: line.slice(2) };
+      const displayMath = asDisplayMath(line);
+      if (displayMath) return { kind: 'math', text: displayMath };
+      if (line.startsWith('- ')) {
+        const bulletMath = asDisplayMath(line.slice(2));
+        return bulletMath
+          ? { kind: 'math', text: bulletMath }
+          : { kind: 'bullet', text: line.slice(2) };
+      }
       return { kind: 'paragraph', text: line };
     });
 }
