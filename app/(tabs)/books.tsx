@@ -1,6 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
-  ActivityIndicator, FlatList, StyleSheet, Text, TouchableOpacity, View,
+  ActivityIndicator, Alert, FlatList, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +25,20 @@ export default function BooksScreen() {
   const { books, isLoading, upload, startUpload, reload, dismissError } = useBooks();
 
   useFocusEffect(React.useCallback(() => { reload(); }, [reload]));
+
+  // Depth choice up front: cards are generated per section and cached, so the
+  // mode is fixed per book at upload time.
+  const handleAddBook = useCallback(() => {
+    Alert.alert(
+      'How deep should it go?',
+      'Concise gives you the key ideas per section. Everything turns all the material into cards.',
+      [
+        { text: 'Concise', onPress: () => startUpload('concise') },
+        { text: 'Everything', onPress: () => startUpload('detailed') },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
+  }, [startUpload]);
 
   const s = useMemo(() => StyleSheet.create({
     container:  { flex: 1, backgroundColor: theme.bg },
@@ -53,7 +67,7 @@ export default function BooksScreen() {
       <SafeAreaView edges={['top']} style={s.header}>
         <View style={s.headerInner}>
           <Text style={s.logoText}>learn</Text>
-          <TouchableOpacity style={s.addBtn} onPress={startUpload} disabled={busy} activeOpacity={0.8}>
+          <TouchableOpacity style={s.addBtn} onPress={handleAddBook} disabled={busy} activeOpacity={0.8}>
             {busy
               ? <ActivityIndicator size="small" color={theme.bg} />
               : <Ionicons name="add" size={16} color={theme.bg} />}

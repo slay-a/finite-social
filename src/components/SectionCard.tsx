@@ -1,7 +1,8 @@
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../context/ThemeContext';
-import { SectionCardData } from '../types';
+import { CardVisual, SectionCardData } from '../types';
 
 interface Props {
   card: SectionCardData;
@@ -28,6 +29,51 @@ function parseBody(body: string): Block[] {
       const parts = text.split(/\*\*/).map((chunk, i) => ({ text: chunk, bold: i % 2 === 1 }));
       return { kind: isBullet ? 'bullet' : 'paragraph', parts };
     });
+}
+
+function Visual({ visual }: { visual: CardVisual }) {
+  const theme = useTheme();
+  const s = useMemo(() => StyleSheet.create({
+    wrap:      { marginTop: 16, gap: 8 },
+    step:      { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
+    stepNum:   { width: 22, height: 22, borderRadius: 11, backgroundColor: `${theme.primary}22`, alignItems: 'center', justifyContent: 'center' },
+    stepNumT:  { fontSize: 11, fontWeight: '800', color: theme.primary },
+    stepText:  { flex: 1, fontSize: 14, fontWeight: '600', color: theme.text },
+    arrow:     { alignSelf: 'center', marginVertical: -4 },
+    compare:   { flexDirection: 'row', gap: 10, marginTop: 16 },
+    side:      { flex: 1, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border, borderRadius: 12, padding: 12, gap: 6 },
+    sideLabel: { fontSize: 12, fontWeight: '800', color: theme.primary, textTransform: 'uppercase', letterSpacing: 0.5 },
+    sidePoint: { fontSize: 13, lineHeight: 18, color: theme.textSub },
+  }), [theme]);
+
+  if (visual.type === 'flow' && visual.steps?.length) {
+    return (
+      <View style={s.wrap}>
+        {visual.steps.map((step, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && <Ionicons name="arrow-down" size={14} color={theme.textDim} style={s.arrow} />}
+            <View style={s.step}>
+              <View style={s.stepNum}><Text style={s.stepNumT}>{i + 1}</Text></View>
+              <Text style={s.stepText}>{step}</Text>
+            </View>
+          </React.Fragment>
+        ))}
+      </View>
+    );
+  }
+  if (visual.type === 'compare' && visual.left && visual.right) {
+    return (
+      <View style={s.compare}>
+        {[visual.left, visual.right].map((side, i) => (
+          <View key={i} style={s.side}>
+            <Text style={s.sideLabel}>{side.label}</Text>
+            {side.points.map((p, j) => <Text key={j} style={s.sidePoint}>• {p}</Text>)}
+          </View>
+        ))}
+      </View>
+    );
+  }
+  return null;
 }
 
 export default function SectionCard({ card, height, index, total, sectionLabel }: Props) {
@@ -68,6 +114,7 @@ export default function SectionCard({ card, height, index, total, sectionLabel }
           </Text>
         ),
       )}
+      {card.visual ? <Visual visual={card.visual} /> : null}
       <View style={s.footer}>
         <Text style={s.counter}>{index + 1} / {total}</Text>
         <Text style={s.counter}>{index + 1 < total ? 'swipe up' : 'section done'}</Text>

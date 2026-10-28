@@ -5,7 +5,9 @@ import { Category } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 
-const ALL_CATEGORIES: Category[] = ['All', 'AI', 'Robotics', 'Dev', 'Startups', 'Science', 'Repos'];
+// Tech/engineering focus only for now; Startups and Science stay as DB
+// categories but get no tab (their articles still appear under All).
+const ALL_CATEGORIES: Category[] = ['All', 'AI', 'Robotics', 'Dev', 'Repos'];
 
 interface Props {
   active: Category;

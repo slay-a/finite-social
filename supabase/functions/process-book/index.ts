@@ -116,11 +116,12 @@ async function outlineFromLlm(
       messages: [
         {
           role: 'system',
-          content: `You extract a book's structure from its front matter / table of contents. The book has ${pageCount} pages (0-indexed). Return JSON: {"sections":[{"label":"1" or "1.2" or null,"title":"...","page_start":N,"page_end":N,"depth":0 or 1}]} — top-level chapters (depth 0) and optionally their sub-sections (depth 1), in reading order, with non-overlapping page ranges covering the body of the book. Page numbers printed in a ToC are usually offset from physical pages; estimate the physical (0-indexed) pages as best you can. 8-40 sections total.`,
+          content: pageCount <= 40
+            ? `You extract the structure of a short document (a paper, article, or booklet) from its full text. It has ${pageCount} pages (0-indexed; page markers like [page N] show where each page starts). Return JSON: {"sections":[{"label":"1" or null,"title":"...","page_start":N,"page_end":N,"depth":0}]}. Split it into its real logical sections in reading order (for a paper: Abstract, Introduction, each named section, Conclusion; merge tiny fragments into their neighbor). Use the actual section titles from the text. Non-overlapping 0-indexed page ranges covering the whole document. 2-12 sections.`
+            : `You extract a book's structure from its front matter / table of contents. The book has ${pageCount} pages (0-indexed). Return JSON: {"sections":[{"label":"1" or "1.2" or null,"title":"...","page_start":N,"page_end":N,"depth":0 or 1}]}. Top-level chapters (depth 0) and optionally their sub-sections (depth 1), in reading order, with non-overlapping page ranges covering the body of the book. Page numbers printed in a ToC are usually offset from physical pages; estimate the physical (0-indexed) pages as best you can. 8-40 sections total.`,
         },
-        { role: 'user', content: frontText.slice(0, 24000) },
+        { role: 'user', content: frontText.slice(0, 48000) },
       ],
-      signal: undefined,
     }),
     signal: AbortSignal.timeout(60000),
   });
@@ -147,7 +148,7 @@ async function outlineFromLlm(
     });
     if (depth === 0) lastTopIdx = sections.length - 1;
   });
-  return sections.length >= 2 ? sections : [];
+  return sections.length >= 1 ? sections : [];
 }
 
 // --- Outline strategy 3: fixed-size parts (always works) -------------------
@@ -160,7 +161,7 @@ function outlineFallback(pageCount: number): SectionDraft[] {
       depth: 0,
       order_index: i,
       label: `${i + 1}`,
-      title: `Part ${i + 1} (pages ${start + 1}–${Math.min(start + chunk, pageCount)})`,
+      title: `Part ${i + 1}`,
       page_start: start,
       page_end: Math.min(start + chunk - 1, pageCount - 1),
     });
@@ -227,10 +228,12 @@ Deno.serve(async (req) => {
     if (sections.length === 0) {
       const apiKey = Deno.env.get('OPENAI_API_KEY');
       if (apiKey) {
-        const { data: front } = await sb
-          .from('book_pages').select('text')
-          .eq('book_id', book.id).lte('page_no', 19).order('page_no');
-        const frontText = (front ?? []).map((r) => r.text).join('\n');
+        // Short documents (papers, articles): the LLM sees the whole text with
+        // page markers and splits it into its real sections. Longer books: the
+        // front matter / ToC region is enough.
+        const query = sb.from('book_pages').select('page_no, text').eq('book_id', book.id).order('page_no');
+        const { data: front } = pageCount <= 40 ? await query : await query.lte('page_no', 19);
+        const frontText = (front ?? []).map((r) => `[page ${r.page_no}]\n${r.text}`).join('\n');
         sections = await outlineFromLlm(frontText, pageCount, apiKey).catch(() => []);
       }
     }

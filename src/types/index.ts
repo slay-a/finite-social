@@ -7,10 +7,20 @@ export type ApiSource = 'hn' | 'devto' | 'reddit' | 'rss' | 'lobsters' | 'github
 export type BookStatus = 'uploaded' | 'parsing' | 'outlined' | 'failed';
 export type CardStatus = 'none' | 'generating' | 'ready' | 'failed';
 
+export type BookCardMode = 'concise' | 'detailed';
+
+export interface CardVisual {
+  type: 'flow' | 'compare';
+  steps?: string[];
+  left?: { label: string; points: string[] };
+  right?: { label: string; points: string[] };
+}
+
 export interface Book {
   id: string;
   title: string;
   author: string | null;
+  cardMode: BookCardMode;
   fileType: 'pdf';
   pageCount: number | null;
   status: BookStatus;
@@ -38,6 +48,7 @@ export interface SectionCardData {
   orderIndex: number;
   title: string;
   body: string;
+  visual?: CardVisual | null;
 }
 
 export interface Article {
@@ -50,6 +61,7 @@ export interface Article {
   tags: string[];
   category: Category;
   publishedAt: string;   // ISO string
+  eventDate?: string;    // YYYY-MM-DD: when the underlying event happened, if known
   imageUrl?: string;
   points?: number;
   commentCount?: number;

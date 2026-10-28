@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Book } from '../types';
+import { Book, BookCardMode } from '../types';
 import { fetchBooks, pickPdf, processBook, uploadBook } from '../lib/booksApi';
 
 export interface UploadState {
@@ -32,13 +32,13 @@ export function useBooks() {
 
   useEffect(() => { reload(); }, [reload]);
 
-  const startUpload = useCallback(async () => {
+  const startUpload = useCallback(async (cardMode: BookCardMode) => {
     const picked = await pickPdf();
     if (!picked) return;
 
     setUpload({ phase: 'uploading', progress: 0, error: null });
     try {
-      const book = await uploadBook(picked);
+      const book = await uploadBook(picked, cardMode);
       setUpload({ phase: 'parsing', progress: 0, error: null });
       await reload();
 

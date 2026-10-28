@@ -11,17 +11,20 @@ const MAX_INPUT_CHARS = 6000;
 
 const CATEGORIES = ['AI', 'Robotics', 'Dev', 'Startups', 'Security', 'Science', 'Repos'];
 
-// Same editor voice as the client's enhanceOne prompt, extended with category.
-const SYSTEM_PROMPT = `You are a senior editor at a respected tech publication. For every article you receive, produce three things:
+// Same editor voice as the client's enhanceOne prompt, extended with category
+// and the date of the underlying event (for freshness display in the app).
+const SYSTEM_PROMPT = `You are a senior editor at a respected tech publication. Today is {{TODAY}}. For every article you receive, produce four things:
 
-HEADLINE — A precise, declarative headline, max 12 words. Strip any "Ask HN:", "Show HN:", "[pdf]", "[video]" prefixes. State the specific who and what. No clickbait, no vague phrasing. Example: "OpenAI Releases GPT-5 With Significantly Improved Reasoning"
+HEADLINE: A precise, declarative headline, max 12 words. Strip any "Ask HN:", "Show HN:", "[pdf]", "[video]" prefixes. State the specific who and what. No clickbait, no vague phrasing. Example: "OpenAI Releases GPT-5 With Significantly Improved Reasoning"
 
-SUMMARY — 75–90 words. Write like The Economist or MIT Technology Review: authoritative, clear, no hype. Third person. One tight paragraph. Lead with the most important fact. Cover what happened, who is involved, the key detail, and why it matters to a technical reader. Do NOT open with "In this article", "This article", the headline, or a restatement of the title. No bullet points. No emoji.
+SUMMARY: 75-90 words. Write like The Economist or MIT Technology Review: authoritative, clear, no hype. Third person. One tight paragraph. Lead with the most important fact. Cover what happened, who is involved, the key detail, and why it matters to a technical reader. When the article describes a dated event (a launch, release, announcement, incident), state when it happened. For a GitHub repository, explain what the project does and why it is getting attention. Do NOT open with "In this article", "This article", the headline, or a restatement of the title. No bullet points. No emoji. Never use em dashes or en dashes; use commas or periods instead.
 
-CATEGORY — Exactly one of: AI, Robotics, Dev, Startups, Security, Science, Repos. Robotics covers robots, humanoids, drones, autonomous vehicles, and robotics hardware.
+CATEGORY: Exactly one of: AI, Robotics, Dev, Startups, Security, Science, Repos. Robotics covers robots, humanoids, drones, autonomous vehicles, and robotics hardware.
+
+EVENT_DATE: The date the underlying event actually happened, as YYYY-MM-DD, ONLY if the article text states or clearly implies it. If the piece is not about a dated event, or the date is not evident, use null. Never guess.
 
 Reply ONLY with this JSON (no markdown, no extra text):
-{"headline":"...","summary":"...","category":"..."}`;
+{"headline":"...","summary":"...","category":"...","event_date":"YYYY-MM-DD or null"}`;
 
 interface ArticleRow {
   id: string;
@@ -32,11 +35,15 @@ interface ArticleRow {
   category: string;
 }
 
+function cleanDashes(text: string): string {
+  return text.replace(/\s*[—–]\s*/g, ', ').replace(/, ,/g, ',');
+}
+
 async function summarizeOne(
   a: ArticleRow,
   extractedText: string | null,
   apiKey: string,
-): Promise<{ ai_title: string; ai_summary: string; category: string } | null> {
+): Promise<{ ai_title: string; ai_summary: string; category: string; ai_event_date: string | null } | null> {
   const body = extractedText
     ? `Article text (may be truncated):\n${extractedText.slice(0, MAX_INPUT_CHARS)}`
     : `Snippet: ${a.raw_summary ?? '(no description available)'}`;
@@ -49,7 +56,7 @@ async function summarizeOne(
       max_tokens: 300,
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'system', content: SYSTEM_PROMPT.replace('{{TODAY}}', new Date().toISOString().slice(0, 10)) },
         { role: 'user', content: `Source: ${a.source_name}\nTitle: "${a.title}"\n${body}` },
       ],
     }),
@@ -60,12 +67,18 @@ async function summarizeOne(
   const raw = data?.choices?.[0]?.message?.content ?? '';
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) return null;
-  const parsed = JSON.parse(match[0]) as { headline?: string; summary?: string; category?: string };
+  const parsed = JSON.parse(match[0]) as {
+    headline?: string; summary?: string; category?: string; event_date?: string | null;
+  };
   if (!parsed.headline?.trim() || !parsed.summary?.trim()) return null;
+  const eventDate = typeof parsed.event_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(parsed.event_date)
+    ? parsed.event_date
+    : null;
   return {
-    ai_title: parsed.headline.trim(),
-    ai_summary: parsed.summary.trim(),
+    ai_title: cleanDashes(parsed.headline.trim()),
+    ai_summary: cleanDashes(parsed.summary.trim()),
     category: CATEGORIES.includes(parsed.category ?? '') ? parsed.category! : a.category,
+    ai_event_date: eventDate,
   };
 }
 

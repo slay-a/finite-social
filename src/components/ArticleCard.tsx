@@ -95,6 +95,33 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+// Freshness of the underlying EVENT, not just the publish time: when the
+// summarizer found the event's own date, show that, and call out old news.
+function freshnessLabel(article: Article): { text: string; stale: boolean } {
+  const basis = article.eventDate ?? article.publishedAt;
+  const ageDays = (Date.now() - new Date(basis).getTime()) / 86_400_000;
+  const text = article.eventDate && ageDays >= 1
+    ? `event: ${new Date(article.eventDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+    : timeAgo(article.publishedAt);
+  return { text, stale: ageDays > 14 };
+}
+
+function FreshnessChip({ article }: { article: Article }) {
+  const fresh = freshnessLabel(article);
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+      <Text style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)', fontWeight: '500' }}>
+        {fresh.text}
+      </Text>
+      {fresh.stale && (
+        <View style={{ backgroundColor: 'rgba(255,158,100,0.85)', borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 }}>
+          <Text style={{ fontSize: 10, fontWeight: '800', color: '#fff' }}>OLDER STORY</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 // isBookmarked / isRead / onBookmark / onMarkRead come from the parent so this
 // component does NOT subscribe to AppContext — context changes no longer trigger
@@ -225,7 +252,7 @@ function ArticleCard({
           <View style={[s.catChip, { backgroundColor: `${catColor}CC` }]}>
             <Text style={s.catText}>{article.category}</Text>
           </View>
-          <Text style={s.heroTime}>{timeAgo(article.publishedAt)}</Text>
+          <FreshnessChip article={article} />
           {alreadyRead && (
             <View style={s.readBadge}><Text style={s.readBadgeText}>✓ Read</Text></View>
           )}
@@ -234,7 +261,8 @@ function ArticleCard({
 
       <View style={s.body}>
         <Text style={alreadyRead ? s.titleRead : s.title} numberOfLines={2}>{resolvedTitle}</Text>
-        <Text style={s.summary}>{resolvedSummary}</Text>
+        {/* Capped so a long summary can never push the bottom bar off the card */}
+        <Text style={s.summary} numberOfLines={9}>{resolvedSummary}</Text>
         {article.tags.length > 0 && (
           <View style={s.tagsRow}>
             {article.tags.slice(0, 3).map((tag) => (

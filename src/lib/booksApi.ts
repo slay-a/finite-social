@@ -1,6 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
-import { Book, BookSection, SectionCardData } from '../types';
+import { Book, BookCardMode, BookSection, SectionCardData } from '../types';
 import { getSupabase } from './supabase';
 
 // ─── Row mappers ──────────────────────────────────────────────────────────────
@@ -10,6 +10,7 @@ function rowToBook(r: any): Book {
     id: r.id,
     title: r.title,
     author: r.author ?? null,
+    cardMode: r.card_mode === 'detailed' ? 'detailed' : 'concise',
     fileType: 'pdf',
     pageCount: r.page_count ?? null,
     status: r.status,
@@ -72,7 +73,7 @@ export async function fetchSection(sectionId: string): Promise<BookSection | nul
 export async function fetchSectionCards(sectionId: string): Promise<SectionCardData[]> {
   const { data, error } = await getSupabase()
     .from('section_cards')
-    .select('id, section_id, order_index, title, body')
+    .select('id, section_id, order_index, title, body, visual')
     .eq('section_id', sectionId)
     .order('order_index');
   if (error) throw new Error(error.message);
@@ -82,6 +83,7 @@ export async function fetchSectionCards(sectionId: string): Promise<SectionCardD
     orderIndex: r.order_index,
     title: r.title,
     body: r.body,
+    visual: r.visual ?? null,
   }));
 }
 
@@ -135,7 +137,7 @@ export async function pickPdf(): Promise<PickedPdf | null> {
   return { name: asset.name, uri: asset.uri, size: asset.size ?? null };
 }
 
-export async function uploadBook(picked: PickedPdf): Promise<Book> {
+export async function uploadBook(picked: PickedPdf, cardMode: BookCardMode): Promise<Book> {
   const sb = getSupabase();
   const userId = (await sb.auth.getUser()).data.user?.id;
   if (!userId) throw new Error('Not signed in');
@@ -144,7 +146,7 @@ export async function uploadBook(picked: PickedPdf): Promise<Book> {
 
   const { data: bookRow, error: insertError } = await sb
     .from('books')
-    .insert({ title, file_size_bytes: picked.size, file_path: '' })
+    .insert({ title, file_size_bytes: picked.size, file_path: '', card_mode: cardMode })
     .select('*')
     .single();
   if (insertError) throw new Error(insertError.message);

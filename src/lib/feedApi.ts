@@ -33,6 +33,7 @@ interface ArticleRow {
   comment_count: number | null;
   image_url: string | null;
   external_id: string;
+  ai_event_date: string | null;
 }
 
 const PAGE_SIZE = 20;
@@ -52,6 +53,7 @@ function rowToArticle(row: ArticleRow): Article {
     tags: row.tags ?? [],
     category: row.category,
     publishedAt: row.published_at,
+    eventDate: row.ai_event_date ?? undefined,
     imageUrl: row.image_url ?? undefined,
     points: row.points ?? undefined,
     commentCount: row.comment_count ?? undefined,
@@ -68,7 +70,7 @@ export async function fetchDbArticles(
   let query = getSupabase()
     .from('articles')
     .select(
-      'id, source_kind, source_name, title, raw_summary, ai_title, ai_summary, url, author, tags, category, published_at, points, comment_count, image_url, external_id',
+      'id, source_kind, source_name, title, raw_summary, ai_title, ai_summary, url, author, tags, category, published_at, points, comment_count, image_url, external_id, ai_event_date',
     )
     .order('published_at', { ascending: false })
     .order('id', { ascending: false })
@@ -76,6 +78,9 @@ export async function fetchDbArticles(
 
   if (category !== 'All') {
     query = query.eq('category', category);
+  } else {
+    // Repos live only in their own tab.
+    query = query.neq('source_kind', 'github');
   }
   if (cursor) {
     // Keyset pagination, tie-safe: older timestamp, or same timestamp with a

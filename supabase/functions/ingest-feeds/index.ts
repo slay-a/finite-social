@@ -305,15 +305,7 @@ async function fetchLobsters(src: SourceRow): Promise<NormalizedArticle[]> {
 }
 
 // -------------------------------------------------------------------- GitHub
-function detectGithubCategory(repo: any): Category {
-  const text = `${repo.name} ${repo.description ?? ''} ${(repo.topics ?? []).join(' ')} ${repo.language ?? ''}`.toLowerCase();
-  if (/\bai\b|llm|gpt|neural|machine.?learning|deep.?learning|pytorch|tensorflow|diffusion|transformer/.test(text)) return 'AI';
-  if (/security|cve|exploit|pentest|ctf|crypto(?!currency)|vuln/.test(text)) return 'Security';
-  if (/startup|saas|commerce|business/.test(text)) return 'Startups';
-  if (/science|biology|physics|chemistry|paper|research/.test(text)) return 'Science';
-  return 'Repos';
-}
-
+// Repos live ONLY in the Repos tab (product decision), so category is fixed.
 async function fetchGithub(src: SourceRow): Promise<NormalizedArticle[]> {
   const since = new Date(Date.now() - 7 * 864e5).toISOString().split('T')[0];
   const res = await fetch(
@@ -334,7 +326,7 @@ async function fetchGithub(src: SourceRow): Promise<NormalizedArticle[]> {
       raw_summary: `${stars}  ·  ${String(r.description).trim()}`,
       author: r.owner?.login ?? null,
       tags: [r.language?.toLowerCase(), ...(r.topics ?? []).slice(0, 3)].filter(Boolean),
-      category: detectGithubCategory(r),
+      category: 'Repos',
       published_at: toIso(r.pushed_at ?? r.created_at),
       points: r.stargazers_count ?? null,
     });

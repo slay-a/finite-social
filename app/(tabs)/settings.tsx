@@ -10,7 +10,7 @@ import { THEMES, ThemeId } from '../../src/theme/themes';
 import { Category } from '../../src/types';
 import SourceFeedModal from '../../src/components/SourceFeedModal';
 
-const FEED_CATEGORIES: Category[] = ['AI', 'Robotics', 'Dev', 'Startups', 'Science', 'Repos'];
+const FEED_CATEGORIES: Category[] = ['AI', 'Robotics', 'Dev', 'Repos'];
 
 export default function ProfileScreen() {
   const {
