@@ -22,7 +22,7 @@ function statusLabel(book: Book): string {
 
 export default function BooksScreen() {
   const theme = useTheme();
-  const { books, isLoading, upload, startUpload, reload, dismissError } = useBooks();
+  const { books, isLoading, upload, startUpload, reload, dismissError, removeBook, regenerate } = useBooks();
 
   useFocusEffect(React.useCallback(() => { reload(); }, [reload]));
 
@@ -61,6 +61,41 @@ export default function BooksScreen() {
   }), [theme]);
 
   const busy = upload.phase === 'uploading' || upload.phase === 'parsing';
+
+  const handleBookActions = useCallback((book: Book) => {
+    const otherMode = book.cardMode === 'concise' ? 'detailed' : 'concise';
+    const otherLabel = otherMode === 'detailed' ? 'Everything' : 'Concise';
+    Alert.alert(
+      book.title,
+      `Cards: ${book.cardMode === 'detailed' ? 'Everything' : 'Concise'}`,
+      [
+        {
+          text: `Regenerate as ${otherLabel}`,
+          onPress: () => {
+            Alert.alert(
+              `Regenerate as ${otherLabel}?`,
+              'All generated cards and reading progress for this book are cleared; each section regenerates when you next open it.',
+              [
+                { text: 'Regenerate', onPress: () => regenerate(book, otherMode) },
+                { text: 'Cancel', style: 'cancel' },
+              ],
+            );
+          },
+        },
+        {
+          text: 'Delete book',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert('Delete book?', 'The PDF, its sections, and all cards are removed.', [
+              { text: 'Delete', style: 'destructive', onPress: () => removeBook(book) },
+              { text: 'Cancel', style: 'cancel' },
+            ]);
+          },
+        },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
+  }, [regenerate, removeBook]);
 
   return (
     <View style={s.container}>
@@ -108,8 +143,9 @@ export default function BooksScreen() {
             <TouchableOpacity
               style={s.bookRow}
               activeOpacity={0.8}
-              disabled={item.status !== 'outlined'}
-              onPress={() => router.push(`/book/${item.id}`)}
+              disabled={item.status !== 'outlined' && item.status !== 'failed'}
+              onPress={() => (item.status === 'outlined' ? router.push(`/book/${item.id}`) : handleBookActions(item))}
+              onLongPress={() => handleBookActions(item)}
             >
               <View style={s.bookIcon}>
                 <Ionicons
@@ -122,10 +158,13 @@ export default function BooksScreen() {
                 <Text style={s.bookTitle} numberOfLines={2}>{item.title}</Text>
                 <Text style={s.bookMeta} numberOfLines={2}>{statusLabel(item)}</Text>
               </View>
-              {item.status === 'outlined' && (
-                <Ionicons name="chevron-forward" size={18} color={theme.textDim} />
+              {item.status === 'parsing' ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <TouchableOpacity onPress={() => handleBookActions(item)} hitSlop={10}>
+                  <Ionicons name="ellipsis-horizontal" size={18} color={theme.textDim} />
+                </TouchableOpacity>
               )}
-              {item.status === 'parsing' && <ActivityIndicator size="small" color={theme.primary} />}
             </TouchableOpacity>
           )}
         />

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Book, BookCardMode } from '../types';
-import { fetchBooks, pickPdf, processBook, uploadBook } from '../lib/booksApi';
+import { deleteBook, fetchBooks, pickPdf, processBook, regenerateBook, uploadBook } from '../lib/booksApi';
 
 export interface UploadState {
   phase: 'idle' | 'uploading' | 'parsing' | 'error';
@@ -68,5 +68,20 @@ export function useBooks() {
     [],
   );
 
-  return { books, isLoading, upload, startUpload, reload, dismissError };
+  const removeBook = useCallback(async (book: Book) => {
+    setBooks((bs) => bs.filter((b) => b.id !== book.id)); // optimistic
+    try { await deleteBook(book); } catch { /* reload restores on failure */ }
+    await reload();
+  }, [reload]);
+
+  const regenerate = useCallback(async (book: Book, mode: BookCardMode) => {
+    try {
+      await regenerateBook(book.id, mode);
+    } catch (e) {
+      setUpload({ phase: 'error', progress: 0, error: e instanceof Error ? e.message : 'Regenerate failed' });
+    }
+    await reload();
+  }, [reload]);
+
+  return { books, isLoading, upload, startUpload, reload, dismissError, removeBook, regenerate };
 }

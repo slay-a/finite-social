@@ -3,10 +3,15 @@
 // Outline detection order: PDF bookmarks -> LLM over the ToC pages -> fixed
 // page ranges as a last resort, so every book gets a usable tree.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { getDocumentProxy } from 'npm:unpdf@0.12.1';
+import { getDocumentProxy, extractImages } from 'npm:unpdf@0.12.1';
+import { encode as encodePng } from 'npm:fast-png@6.2.0';
 import { verifyUser, json, corsHeaders } from '../_shared/userAuth.ts';
 
 const PAGES_PER_INVOCATION = 50;
+const MAX_FIGURES_PER_PAGE = 3;
+const MAX_FIGURES_PER_BOOK = 60;
+const MIN_FIGURE_PIXELS = 40_000;   // skip icons/logos (< ~200x200)
+const MAX_FIGURE_PIXELS = 4_000_000; // skip giant scans (memory)
 const SCANNED_PDF_MIN_CHARS = 100; // across the first chunk
 const MAX_PAGE_CHARS = 8000;
 const OUTLINE_MODEL = 'gpt-4o-mini';
@@ -44,6 +49,54 @@ async function extractPageRange(
     }
   }
   return out;
+}
+
+// --- Figure extraction ------------------------------------------------------
+// The author's own diagrams, pulled straight from the PDF and stored as PNGs.
+// Best-effort: any failure skips the figure, never the parse.
+async function extractPageFigures(
+  sb: ReturnType<typeof createClient>,
+  pdf: any,
+  book: { id: string; owner_id: string },
+  pageNo: number,
+  figuresSoFar: number,
+): Promise<number> {
+  if (figuresSoFar >= MAX_FIGURES_PER_BOOK) return 0;
+  let added = 0;
+  try {
+    const images = await extractImages(pdf, pageNo + 1); // 1-based pages
+    for (let i = 0; i < Math.min(images?.length ?? 0, MAX_FIGURES_PER_PAGE); i++) {
+      try {
+        const img: any = images[i];
+        const width = img?.width ?? 0;
+        const height = img?.height ?? 0;
+        const data = img?.data;
+        const pixels = width * height;
+        if (!data || pixels < MIN_FIGURE_PIXELS || pixels > MAX_FIGURE_PIXELS) continue;
+        const channels = Math.round(data.length / pixels);
+        if (![1, 3, 4].includes(channels)) continue;
+
+        const png = encodePng({ width, height, data, channels: channels as 1 | 3 | 4 });
+        const path = `${book.owner_id}/${book.id}/figures/p${pageNo}-${i}.png`;
+        const { error: upError } = await sb.storage.from('books')
+          .upload(path, png, { contentType: 'image/png', upsert: true });
+        if (upError) continue;
+
+        await sb.from('book_figures').upsert({
+          book_id: book.id,
+          owner_id: book.owner_id,
+          page_no: pageNo,
+          idx: i,
+          storage_path: path,
+          width,
+          height,
+        }, { onConflict: 'book_id,page_no,idx' });
+        added++;
+        if (figuresSoFar + added >= MAX_FIGURES_PER_BOOK) break;
+      } catch { /* skip this image */ }
+    }
+  } catch { /* page has no extractable images */ }
+  return added;
 }
 
 // --- Outline strategy 1: the PDF's own bookmarks --------------------------
@@ -199,6 +252,14 @@ Deno.serve(async (req) => {
     const end = Math.min(start + PAGES_PER_INVOCATION, pageCount);
 
     const pages = await extractPageRange(pdf, start, end);
+
+    // Pull the author's own figures from this chunk's pages (best-effort).
+    const { count: existingFigures } = await sb
+      .from('book_figures').select('id', { count: 'exact', head: true }).eq('book_id', book.id);
+    let figures = existingFigures ?? 0;
+    for (let p = start; p < end && figures < MAX_FIGURES_PER_BOOK; p++) {
+      figures += await extractPageFigures(sb, pdf, book, p, figures);
+    }
 
     // Scanned-PDF gate on the first chunk: no text layer means no feature.
     if (start === 0) {

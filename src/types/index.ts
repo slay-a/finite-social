@@ -10,10 +10,26 @@ export type CardStatus = 'none' | 'generating' | 'ready' | 'failed';
 export type BookCardMode = 'concise' | 'detailed';
 
 export interface CardVisual {
-  type: 'flow' | 'compare';
+  type: 'flow' | 'cycle' | 'compare' | 'grid' | 'timeline' | 'stats';
   steps?: string[];
   left?: { label: string; points: string[] };
   right?: { label: string; points: string[] };
+  items?: Array<{ label?: string; text?: string; value?: string }>;
+}
+
+export interface CardQuiz {
+  question: string;
+  options: string[];
+  answer: number;
+  why?: string | null;
+}
+
+export interface CardFigure {
+  path: string;
+  page: number;
+  width?: number | null;
+  height?: number | null;
+  signedUrl?: string;
 }
 
 export interface Book {
@@ -46,9 +62,12 @@ export interface SectionCardData {
   id: string;
   sectionId: string;
   orderIndex: number;
+  kind: 'content' | 'quiz' | 'figure';
   title: string;
   body: string;
   visual?: CardVisual | null;
+  quiz?: CardQuiz | null;
+  figure?: CardFigure | null;
 }
 
 export interface Article {

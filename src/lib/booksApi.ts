@@ -71,25 +71,66 @@ export async function fetchSection(sectionId: string): Promise<BookSection | nul
 }
 
 export async function fetchSectionCards(sectionId: string): Promise<SectionCardData[]> {
-  const { data, error } = await getSupabase()
+  const sb = getSupabase();
+  const { data, error } = await sb
     .from('section_cards')
-    .select('id, section_id, order_index, title, body, visual')
+    .select('id, section_id, order_index, kind, title, body, visual, quiz, figure')
     .eq('section_id', sectionId)
     .order('order_index');
   if (error) throw new Error(error.message);
-  return (data ?? []).map((r: any) => ({
+
+  const cards: SectionCardData[] = (data ?? []).map((r: any) => ({
     id: r.id,
     sectionId: r.section_id,
     orderIndex: r.order_index,
+    kind: r.kind ?? 'content',
     title: r.title,
     body: r.body,
     visual: r.visual ?? null,
+    quiz: r.quiz ?? null,
+    figure: r.figure ?? null,
   }));
+
+  // Private bucket: figure cards need short-lived signed URLs.
+  const figureCards = cards.filter((c) => c.kind === 'figure' && c.figure?.path);
+  if (figureCards.length > 0) {
+    const { data: signed } = await sb.storage
+      .from('books')
+      .createSignedUrls(figureCards.map((c) => c.figure!.path), 3600);
+    (signed ?? []).forEach((s, i) => {
+      if (s.signedUrl) figureCards[i].figure!.signedUrl = s.signedUrl;
+    });
+  }
+  return cards;
 }
 
-export async function deleteBook(bookId: string): Promise<void> {
-  const { error } = await getSupabase().from('books').delete().eq('id', bookId);
+export async function deleteBook(book: Book & { id: string }): Promise<void> {
+  const sb = getSupabase();
+  const userId = (await sb.auth.getUser()).data.user?.id;
+
+  // Storage first (table delete cascades the rest). Figures live under
+  // {uid}/{bookId}/figures/, the PDF at {uid}/{bookId}.pdf.
+  if (userId) {
+    const prefix = `${userId}/${book.id}/figures`;
+    const { data: figs } = await sb.storage.from('books').list(prefix, { limit: 100 });
+    const paths = [
+      `${userId}/${book.id}.pdf`,
+      ...(figs ?? []).map((f) => `${prefix}/${f.name}`),
+    ];
+    await sb.storage.from('books').remove(paths).then(() => {}, () => {});
+  }
+
+  const { error } = await sb.from('books').delete().eq('id', book.id);
   if (error) throw new Error(error.message);
+}
+
+export async function regenerateBook(bookId: string, cardMode: BookCardMode): Promise<void> {
+  const { data, error } = await getSupabase().functions.invoke<{ ok?: boolean; error?: string }>(
+    'regenerate-book',
+    { body: { book_id: bookId, card_mode: cardMode } },
+  );
+  if (error) throw new Error(error.message);
+  if (!data?.ok) throw new Error(data?.error ?? 'Regenerate failed');
 }
 
 // ─── Reading progress ─────────────────────────────────────────────────────────
