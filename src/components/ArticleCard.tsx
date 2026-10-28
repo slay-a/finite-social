@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  Share, Dimensions, Image,
+  Share, Image, useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
@@ -13,8 +13,11 @@ import { useTheme } from '../context/ThemeContext';
 import ExplainSheet from './ExplainSheet';
 import { fetchOgImage } from '../lib/ogImage';
 
-const { width: SCREEN_W } = Dimensions.get('window');
-const HERO_H = 210;
+// Hero scales with the card so small phones keep room for text: 28% of the
+// card, clamped. Width comes from useWindowDimensions (rotation/split safe).
+function heroHeight(cardH: number): number {
+  return Math.round(Math.min(230, Math.max(140, cardH * 0.28)));
+}
 
 // ─── Module-level style cache keyed by theme.id ───────────────────────────────
 // StyleSheet.create runs once per theme (at most 6 times total) instead of once
@@ -25,8 +28,8 @@ function getStyles(theme: Theme) {
   let s = styleCache.get(theme.id);
   if (s) return s;
   s = StyleSheet.create({
-    card:            { width: SCREEN_W, backgroundColor: theme.card, overflow: 'hidden' },
-    hero:            { height: HERO_H, width: '100%', overflow: 'hidden', position: 'relative' },
+    card:            { backgroundColor: theme.card, overflow: 'hidden' },
+    hero:            { width: '100%', overflow: 'hidden', position: 'relative' },
     heroImage:       { width: '100%', height: '100%' },
     heroGradient:    { position: 'absolute', bottom: 0, left: 0, right: 0, height: 80 },
     heroPlaceholder: { flex: 1, justifyContent: 'flex-end', padding: 16, paddingBottom: 20 },
@@ -145,6 +148,8 @@ function ArticleCard({
 }: Props) {
   const theme = useTheme();   // Only context subscription — theme changes are rare
   const s = getStyles(theme); // Cached; StyleSheet.create never runs during a re-render
+  const { width: windowW } = useWindowDimensions();
+  const heroH = heroHeight(height);
   const [explainVisible, setExplainVisible] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [ogImage, setOgImage] = useState<string | undefined>(undefined);
@@ -184,9 +189,9 @@ function ArticleCard({
   }, [article.url]);
 
   // Fit the summary to what this device's card can actually hold, so the
-  // bottom bar is never pushed off or clipped. Fixed chrome: hero 210, title
-  // ~2 lines 54, tags ~32, bottom bar ~58, body padding/gaps ~40.
-  const summaryLines = Math.max(3, Math.floor((height - HERO_H - 54 - 32 - 58 - 40) / 23));
+  // bottom bar is never pushed off or clipped. Fixed chrome: title ~2 lines
+  // 54, tags ~32, bottom bar ~58, body padding/gaps ~40.
+  const summaryLines = Math.max(3, Math.floor((height - heroH - 54 - 32 - 58 - 40) / 23));
 
   const handleRead = useCallback(async () => {
     onMarkRead(article.id);
@@ -223,8 +228,8 @@ function ArticleCard({
   }, [article, theme.surface, theme.hnOrange]);
 
   return (
-    <View style={[s.card, { height }]}>
-      <View style={s.hero}>
+    <View style={[s.card, { height, width: windowW }]}>
+      <View style={[s.hero, { height: heroH }]}>
         {showImage ? (
           <>
             <Image

@@ -11,6 +11,7 @@ export interface LeetcodeProblem {
   slug: string;
   difficulty: Difficulty;
   acRate?: number; // acceptance % (0-100)
+  paidOnly?: boolean; // LeetCode premium; free to practice on neetcode.io
 }
 
 export interface LeetcodeExplanation {
@@ -22,7 +23,7 @@ export interface LeetcodeExplanation {
 
 // ─── Problem list ─────────────────────────────────────────────────────────────
 
-const PROBLEMS_KEY = 'finitesocial:leetcode:problems';
+const PROBLEMS_KEY = 'finitesocial:leetcode:problems:v2'; // v2: includes paidOnly
 const PROBLEMS_TTL = 24 * 60 * 60 * 1000; // refresh daily
 
 let problemsMemCache: LeetcodeProblem[] | null = null;
@@ -49,13 +50,17 @@ async function loadAllProblems(): Promise<LeetcodeProblem[]> {
   if (!res.ok) throw new Error(`LeetCode API ${res.status}`);
 
   const json = await res.json();
+  // Keep premium problems: dropping them silently truncated the curated lists
+  // (5 of the Blind 75 are premium, so "LeetCode 75" showed 70). The endless
+  // feed filters them out; curated lists keep them and practice on neetcode.io.
   const problems: LeetcodeProblem[] = (json.stat_status_pairs as any[])
-    .filter((p) => !p.paid_only && !p.stat.question__hide)
+    .filter((p) => !p.stat.question__hide)
     .map((p): LeetcodeProblem => ({
       id: p.stat.question_id,
       title: p.stat.question__title,
       slug: p.stat.question__title_slug,
       difficulty: p.difficulty.level === 1 ? 'Easy' : p.difficulty.level === 2 ? 'Medium' : 'Hard',
+      paidOnly: !!p.paid_only,
       acRate:
         p.stat.total_acs && p.stat.total_submitted
           ? Math.round((p.stat.total_acs / p.stat.total_submitted) * 100)
@@ -75,7 +80,8 @@ export async function getProblems(
   pageSize = 20,
 ): Promise<LeetcodeProblem[]> {
   const all = await loadAllProblems();
-  const filtered = difficulty === 'All' ? all : all.filter((p) => p.difficulty === difficulty);
+  const free = all.filter((p) => !p.paidOnly);
+  const filtered = difficulty === 'All' ? free : free.filter((p) => p.difficulty === difficulty);
   return filtered.slice(page * pageSize, (page + 1) * pageSize);
 }
 

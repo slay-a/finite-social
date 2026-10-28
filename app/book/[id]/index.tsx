@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../../src/context/ThemeContext';
-import { fetchBook, fetchProgress, fetchSections } from '../../../src/lib/booksApi';
+import { fetchBook, fetchProgress, fetchSections, saveProgress } from '../../../src/lib/booksApi';
 import { Book, BookSection } from '../../../src/types';
 
 interface OutlineGroup {
@@ -58,6 +58,19 @@ export default function BookOutlineScreen() {
     centered:     { flex: 1, alignItems: 'center', justifyContent: 'center' },
   }), [theme]);
 
+  // Tap the status icon to mark a section read or unread by hand; finishing
+  // the cards still marks it automatically.
+  const toggleRead = useCallback((section: BookSection) => {
+    const current = progress.get(section.id);
+    const next = !current?.completed;
+    setProgress((prev) => {
+      const map = new Map(prev);
+      map.set(section.id, { lastCardIndex: current?.lastCardIndex ?? 0, completed: next });
+      return map;
+    });
+    saveProgress(section.id, current?.lastCardIndex ?? 0, next).catch(() => {});
+  }, [progress]);
+
   const renderRow = useCallback(({ item }: { item: BookSection }) => {
     const p = progress.get(item.id);
     const icon = p?.completed ? 'checkmark-circle'
@@ -74,10 +87,12 @@ export default function BookOutlineScreen() {
           <Text style={s.rowTitle} numberOfLines={2}>{item.title}</Text>
           <Text style={s.rowMeta}>pages {item.pageStart + 1}–{item.pageEnd + 1}</Text>
         </View>
-        <Ionicons name={icon} size={20} color={p?.completed ? theme.accent : theme.textDim} />
+        <TouchableOpacity onPress={() => toggleRead(item)} hitSlop={10}>
+          <Ionicons name={icon} size={22} color={p?.completed ? theme.accent : theme.textDim} />
+        </TouchableOpacity>
       </TouchableOpacity>
     );
-  }, [progress, s, id, theme]);
+  }, [progress, s, id, theme, toggleRead]);
 
   return (
     <View style={s.container}>

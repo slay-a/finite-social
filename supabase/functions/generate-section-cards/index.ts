@@ -21,6 +21,8 @@ MATH: NEVER drop, paraphrase, or summarize away a formula; the formulas ARE the 
 
 SCOPE: the page text below may also contain material from NEIGHBORING sections (pages are shared). Cover ONLY the material that belongs to the named section; ignore the rest. Never make cards about the document's references, bibliography, or author biographies.
 
+FIDELITY: a reader who finishes these cards should have effectively read the section, no more and no less. Every claim must come from the text; never pad with generic filler the text does not say (phrases like "further research is needed", "this is important to understand", "progress is expected"). Never repeat the same point across cards.
+
 VISUALS: aim for 1-2 per section whenever the material contains a process, a set of named categories or types, a comparison, dated phases, or verbatim numbers; use plain text only when nothing fits. At most 3 per section, each type only where it fits:
 - {"type":"flow","steps":["step 1","step 2","step 3"]} for a process or pipeline (3-5 short steps)
 - {"type":"cycle","steps":["phase 1","phase 2","phase 3"]} for a repeating loop (3-5 phases)

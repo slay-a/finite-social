@@ -14,7 +14,7 @@ import {
   getProblems, getExplanation, getCuratedProblems,
   LeetcodeProblem, LeetcodeExplanation, Difficulty, ProblemSet,
 } from '../../src/lib/leetcodeApi';
-import { NEETCODE_TOPICS, NeetcodeTopic } from '../../src/lib/neetcodeData';
+import { NEETCODE_TOPICS, NeetcodeTopic, NC150_SLUG_SET } from '../../src/lib/neetcodeData';
 import { callOpenAI, ChatMessage } from '../../src/lib/aiService';
 
 // ─── Difficulty helpers ───────────────────────────────────────────────────────
@@ -270,7 +270,7 @@ interface CardProps {
   problem: LeetcodeProblem;
   height: number;
   position?: number;
-  total?: number;
+  total?: number | null;
   diffCounts?: DiffCounts;
 }
 
@@ -302,8 +302,19 @@ function ProblemCardInner({ problem, height, position, total, diffCounts }: Card
 
   const openOnLeetcode = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Linking.openURL(`https://leetcode.com/problems/${problem.slug}/`);
-  }, [problem.slug]);
+    // Premium problems hit a paywall on leetcode.com; neetcode.io hosts them free.
+    Linking.openURL(problem.paidOnly
+      ? `https://neetcode.io/problems/${problem.slug}`
+      : `https://leetcode.com/problems/${problem.slug}/`);
+  }, [problem.slug, problem.paidOnly]);
+
+  const openVisual = useCallback(() => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    // NeetCode's animated walkthrough videos: the visual explanation.
+    Linking.openURL(NC150_SLUG_SET.has(problem.slug)
+      ? `https://neetcode.io/solutions/${problem.slug}`
+      : `https://www.youtube.com/results?search_query=${encodeURIComponent(`${problem.title} leetcode explained`)}`);
+  }, [problem.slug, problem.title]);
 
   const sections = useMemo(() => {
     if (!explanation) return [];
@@ -328,14 +339,14 @@ function ProblemCardInner({ problem, height, position, total, diffCounts }: Card
       </View>
 
       {/* Progress strip */}
-      {position != null && total != null && diffCounts != null && (
+      {position != null && diffCounts != null && (
         <View style={s.progressStrip}>
-          <Text style={s.progressPos}>{position} of {total}</Text>
+          <Text style={s.progressPos}>{total != null ? `${position} of ${total}` : `#${position}`}</Text>
           <View style={s.progressCounts}>
             {diffCounts.easy > 0 && <Text style={[s.progressDiff, { color: DIFF_COLOR.Easy }]}>{diffCounts.easy}E</Text>}
             {diffCounts.medium > 0 && <Text style={[s.progressDiff, { color: DIFF_COLOR.Medium }]}>{diffCounts.medium}M</Text>}
             {diffCounts.hard > 0 && <Text style={[s.progressDiff, { color: DIFF_COLOR.Hard }]}>{diffCounts.hard}H</Text>}
-            <Text style={s.progressLeft}>· {total - position} left</Text>
+            {total != null && <Text style={s.progressLeft}>· {total - position} left</Text>}
           </View>
         </View>
       )}
@@ -396,6 +407,10 @@ function ProblemCardInner({ problem, height, position, total, diffCounts }: Card
           <Ionicons name="bulb-outline" size={14} color={theme.primary} />
           <Text style={s.askTxt}>Ask AI</Text>
         </TouchableOpacity>
+        <TouchableOpacity onPress={openVisual} style={s.askBtn} activeOpacity={0.85}>
+          <Ionicons name="play-circle-outline" size={14} color={theme.primary} />
+          <Text style={s.askTxt}>Visual</Text>
+        </TouchableOpacity>
         <TouchableOpacity onPress={openOnLeetcode} style={s.practiceBtn} activeOpacity={0.85}>
           <Text style={s.practiceTxt}>Practice</Text>
           <Ionicons name="arrow-forward" size={13} color={theme.bg} />
@@ -455,6 +470,8 @@ export default function CodeScreen() {
   const diffCountsRef = useRef<DiffCounts>({ easy: 0, medium: 0, hard: 0 });
 
   const [problemSet, setProblemSet] = useState<ProblemSet>('All');
+  const problemSetRef = useRef<ProblemSet>('All');
+  problemSetRef.current = problemSet;
   const [topic, setTopic] = useState<NeetcodeTopic | 'All'>('All');
   const [difficulty, setDifficulty] = useState<Difficulty | 'All'>('All');
   const [topicPickerVisible, setTopicPickerVisible] = useState(false);
@@ -526,7 +543,7 @@ export default function CodeScreen() {
         problem={item}
         height={cardHRef.current}
         position={index + 1}
-        total={problemsRef.current.length}
+        total={problemSetRef.current === 'All' ? null : problemsRef.current.length}
         diffCounts={diffCountsRef.current}
       />
     ),
