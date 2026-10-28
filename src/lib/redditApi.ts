@@ -6,11 +6,11 @@ const BASE = 'https://www.reddit.com';
 const CATEGORY_SUBS: Record<Category, string[]> = {
   All:      ['technology', 'programming'],
   AI:       ['MachineLearning', 'artificial', 'ChatGPT'],
+  Robotics: ['robotics'],
   Dev:      ['programming', 'webdev'],
   Startups: ['startups', 'YCombinator'],
   Security: ['netsec', 'cybersecurity'],
   Science:  ['science', 'Futurology'],
-  Brainrot: ['funny', 'memes'],  // not used — useFeed bypasses this
   Repos:    ['programming', 'coding'],  // not used — useFeed bypasses this
 };
 

@@ -6,11 +6,11 @@ const BASE = 'https://hn.algolia.com/api/v1';
 const CATEGORY_QUERIES: Record<Category, string> = {
   All:      `${BASE}/search?tags=front_page&hitsPerPage=20`,
   AI:       `${BASE}/search?tags=story&query=AI+machine+learning+LLM&hitsPerPage=20`,
+  Robotics: `${BASE}/search?tags=story&query=robot+robotics+humanoid+drone&hitsPerPage=20`,
   Dev:      `${BASE}/search?tags=story&query=programming+software+engineering&hitsPerPage=20`,
   Startups: `${BASE}/search?tags=story&query=startup+YC+founder+venture&hitsPerPage=20`,
   Security: `${BASE}/search?tags=story&query=security+hacking+vulnerability+breach&hitsPerPage=20`,
   Science:  `${BASE}/search?tags=story&query=science+research+physics+biology&hitsPerPage=20`,
-  Brainrot: `${BASE}/search?tags=front_page&hitsPerPage=20`,  // not used — useFeed bypasses this
   Repos:    `${BASE}/search?tags=front_page&hitsPerPage=20`,  // not used — useFeed bypasses this
 };
 

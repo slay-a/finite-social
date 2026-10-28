@@ -9,7 +9,7 @@ const CONCURRENCY = 4;
 const MODEL = 'gpt-4o-mini';
 const MAX_INPUT_CHARS = 6000;
 
-const CATEGORIES = ['AI', 'Dev', 'Startups', 'Security', 'Science', 'Repos'];
+const CATEGORIES = ['AI', 'Robotics', 'Dev', 'Startups', 'Security', 'Science', 'Repos'];
 
 // Same editor voice as the client's enhanceOne prompt, extended with category.
 const SYSTEM_PROMPT = `You are a senior editor at a respected tech publication. For every article you receive, produce three things:
@@ -18,7 +18,7 @@ HEADLINE — A precise, declarative headline, max 12 words. Strip any "Ask HN:",
 
 SUMMARY — 75–90 words. Write like The Economist or MIT Technology Review: authoritative, clear, no hype. Third person. One tight paragraph. Lead with the most important fact. Cover what happened, who is involved, the key detail, and why it matters to a technical reader. Do NOT open with "In this article", "This article", the headline, or a restatement of the title. No bullet points. No emoji.
 
-CATEGORY — Exactly one of: AI, Dev, Startups, Security, Science, Repos.
+CATEGORY — Exactly one of: AI, Robotics, Dev, Startups, Security, Science, Repos. Robotics covers robots, humanoids, drones, autonomous vehicles, and robotics hardware.
 
 Reply ONLY with this JSON (no markdown, no extra text):
 {"headline":"...","summary":"...","category":"..."}`;

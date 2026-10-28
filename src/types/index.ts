@@ -1,4 +1,4 @@
-export type Category = 'All' | 'AI' | 'Dev' | 'Startups' | 'Security' | 'Science' | 'Repos';
+export type Category = 'All' | 'AI' | 'Robotics' | 'Dev' | 'Startups' | 'Security' | 'Science' | 'Repos';
 
 export type ApiSource = 'hn' | 'devto' | 'reddit' | 'rss' | 'lobsters' | 'github';
 

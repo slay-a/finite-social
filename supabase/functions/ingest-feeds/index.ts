@@ -9,7 +9,7 @@ import { detectCategory, titleDedupeKey, type Category } from '../_shared/catego
 
 interface SourceRow {
   id: string;
-  kind: 'rss' | 'hn' | 'reddit' | 'devto' | 'lobsters' | 'github';
+  kind: 'rss' | 'hn' | 'reddit' | 'devto' | 'lobsters' | 'github' | 'guardian';
   name: string;
   short_name: string;
   feed_url: string | null;
@@ -341,6 +341,43 @@ async function fetchGithub(src: SourceRow): Promise<NormalizedArticle[]> {
   });
 }
 
+// ------------------------------------------------------------------ Guardian
+// The Guardian Open Platform: free API key (open-platform.theguardian.com).
+// No-op until GUARDIAN_API_KEY is set as a function secret.
+const GUARDIAN_QUERIES = [
+  'section=technology',
+  'q=robot%20OR%20robotics%20OR%20humanoid%20OR%20drone&section=technology|science|business',
+];
+
+async function fetchGuardian(src: SourceRow): Promise<NormalizedArticle[]> {
+  const key = Deno.env.get('GUARDIAN_API_KEY');
+  if (!key) return []; // no key yet — poll succeeds with nothing, no error noise
+
+  const out: NormalizedArticle[] = [];
+  for (const q of GUARDIAN_QUERIES) {
+    const res = await fetch(
+      `https://content.guardianapis.com/search?${q}&show-fields=trailText,thumbnail,byline&order-by=newest&page-size=20&api-key=${key}`,
+      { signal: AbortSignal.timeout(10000) },
+    );
+    if (!res.ok) continue;
+    const data = await res.json() as { response?: { results?: any[] } };
+    for (const r of data.response?.results ?? []) {
+      if (!r.webTitle || !r.webUrl) continue;
+      out.push(base(src, {
+        external_id: String(r.id),
+        url: r.webUrl,
+        title: r.webTitle,
+        raw_summary: r.fields?.trailText ? stripHtml(r.fields.trailText).slice(0, 220) : null,
+        author: r.fields?.byline ?? 'The Guardian',
+        tags: [r.sectionName ?? 'technology'],
+        published_at: toIso(r.webPublicationDate),
+        image_url: r.fields?.thumbnail ?? null,
+      }));
+    }
+  }
+  return out;
+}
+
 // --------------------------------------------------------------------- main
 Deno.serve(async (req) => {
   const authError = checkCronSecret(req);
@@ -392,6 +429,7 @@ Deno.serve(async (req) => {
       else if (src.kind === 'devto') articles = await fetchDevto(src);
       else if (src.kind === 'lobsters') articles = await fetchLobsters(src);
       else if (src.kind === 'github') articles = await fetchGithub(src);
+      else if (src.kind === 'guardian') articles = await fetchGuardian(src);
 
       found = articles.length;
       if (articles.length > 0) {

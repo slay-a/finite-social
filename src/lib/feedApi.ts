@@ -78,9 +78,11 @@ export async function fetchDbArticles(
     query = query.eq('category', category);
   }
   if (cursor) {
-    // Keyset pagination: strictly older than the last row we have. Ties on
-    // published_at are rare enough that the simple form is fine here.
-    query = query.lt('published_at', cursor.publishedAt);
+    // Keyset pagination, tie-safe: older timestamp, or same timestamp with a
+    // smaller id (matches the published_at desc, id desc ordering).
+    query = query.or(
+      `published_at.lt.${cursor.publishedAt},and(published_at.eq.${cursor.publishedAt},id.lt.${cursor.id})`,
+    );
   }
 
   const { data, error } = await query;

@@ -47,7 +47,7 @@ export const THEMES: Theme[] = [
     tabBarBg: '#0D0D14', tabActive: '#58A6FF', tabInactive: '#4A5568',
     categoryColors: {
       All: '#58A6FF', AI: '#B78BFA', Dev: '#39D353',
-      Startups: '#F7C94B', Security: '#FF6B70', Science: '#56D4E8', Brainrot: '#FF2D78', Repos: '#58A6FF',
+      Startups: '#F7C94B', Security: '#FF6B70', Science: '#56D4E8', Robotics: '#FF9E64', Brainrot: '#FF2D78', Repos: '#58A6FF',
     },
   },
   {
@@ -64,7 +64,7 @@ export const THEMES: Theme[] = [
     tabBarBg: '#000000', tabActive: '#6AB7FF', tabInactive: '#505868',
     categoryColors: {
       All: '#6AB7FF', AI: '#C49EFF', Dev: '#4FD97A',
-      Startups: '#FFD045', Security: '#FF7B7B', Science: '#60DDEE', Brainrot: '#FF4D90', Repos: '#6AB7FF',
+      Startups: '#FFD045', Security: '#FF7B7B', Science: '#60DDEE', Robotics: '#FF9E64', Brainrot: '#FF4D90', Repos: '#6AB7FF',
     },
   },
   {
@@ -81,7 +81,7 @@ export const THEMES: Theme[] = [
     tabBarBg: '#FFFFFF', tabActive: '#0969DA', tabInactive: '#8D9199',
     categoryColors: {
       All: '#0969DA', AI: '#8250DF', Dev: '#1A7F37',
-      Startups: '#9A6700', Security: '#CF222E', Science: '#1781B5', Brainrot: '#C73E85', Repos: '#0969DA',
+      Startups: '#9A6700', Security: '#CF222E', Science: '#1781B5', Robotics: '#FF9E64', Brainrot: '#C73E85', Repos: '#0969DA',
     },
   },
   {
@@ -98,7 +98,7 @@ export const THEMES: Theme[] = [
     tabBarBg: '#160F0A', tabActive: '#E8A87C', tabInactive: '#604030',
     categoryColors: {
       All: '#E8A87C', AI: '#D4A0F0', Dev: '#8BC34A',
-      Startups: '#F7C94B', Security: '#FF8080', Science: '#72CCB8', Brainrot: '#FF8AAA', Repos: '#E8A87C',
+      Startups: '#F7C94B', Security: '#FF8080', Science: '#72CCB8', Robotics: '#FF9E64', Brainrot: '#FF8AAA', Repos: '#E8A87C',
     },
   },
   {
@@ -116,7 +116,7 @@ export const THEMES: Theme[] = [
     tabBarBg: '#0D0D14', tabActive: '#648FFF', tabInactive: '#4A5568',
     categoryColors: {
       All: '#648FFF', AI: '#785EF0', Dev: '#FFB000',
-      Startups: '#FE6100', Security: '#DC267F', Science: '#009CDE', Brainrot: '#FF6E54', Repos: '#648FFF',
+      Startups: '#FE6100', Security: '#DC267F', Science: '#009CDE', Robotics: '#FF9E64', Brainrot: '#FF6E54', Repos: '#648FFF',
     },
   },
 ];

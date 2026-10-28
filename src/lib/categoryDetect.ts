@@ -2,6 +2,7 @@ import { Category } from '../types';
 
 export function detectCategory(title: string, tags: string[]): Category {
   const lower = (title + ' ' + tags.join(' ')).toLowerCase();
+  if (/\b(robots?|robotics|humanoids?|drones?|uav|quadruped|boston dynamics|unitree|figure ai|exoskeleton|actuators?|self.?driving|autonomous (car|vehicle|driving|truck)s?|waymo|lidar|rovers?)\b/.test(lower)) return 'Robotics';
   if (/\b(ai|gpt|llm|machine learning|deep learning|neural|openai|anthropic|gemini|claude|copilot|diffusion|transformer)\b/.test(lower)) return 'AI';
   if (/\b(security|hack|breach|vuln|malware|exploit|phishing|ransomware|privacy|cyber|zero.?day|cve)\b/.test(lower)) return 'Security';
   if (/\b(startup|yc|ycombinator|founder|vc|venture|funding|seed round|series [a-d]|unicorn|acquisition)\b/.test(lower)) return 'Startups';

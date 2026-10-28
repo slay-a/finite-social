@@ -10,7 +10,7 @@ import { THEMES, ThemeId } from '../../src/theme/themes';
 import { Category } from '../../src/types';
 import SourceFeedModal from '../../src/components/SourceFeedModal';
 
-const FEED_CATEGORIES: Category[] = ['AI', 'Dev', 'Startups', 'Science', 'Repos'];
+const FEED_CATEGORIES: Category[] = ['AI', 'Robotics', 'Dev', 'Startups', 'Science', 'Repos'];
 
 export default function ProfileScreen() {
   const {
@@ -205,7 +205,7 @@ export default function ProfileScreen() {
             {/* Per-category toggles */}
             {FEED_CATEGORIES.map((cat, i) => {
               const enabled = !disabledCategories.has(cat);
-              const color = theme.categoryColors[cat];
+              const color = theme.categoryColors[cat] ?? theme.primary;
               return (
                 <View key={cat}>
                   {i > 0 && <View style={s.divider} />}

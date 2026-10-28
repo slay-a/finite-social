@@ -16,11 +16,11 @@ interface LobstersStory {
 const CATEGORY_QUERIES: Record<Category, string> = {
   All:      'https://lobste.rs/hottest.json',
   AI:       'https://lobste.rs/t/ai.json',
+  Robotics: 'https://lobste.rs/t/hardware.json',
   Dev:      'https://lobste.rs/t/programming.json',
   Startups: 'https://lobste.rs/hottest.json',
   Security: 'https://lobste.rs/t/security.json',
   Science:  'https://lobste.rs/t/science.json',
-  Brainrot: 'https://lobste.rs/hottest.json',  // not used — useFeed bypasses this
   Repos:    'https://lobste.rs/hottest.json',  // not used — useFeed bypasses this
 };
 

@@ -5,11 +5,11 @@ const BASE = 'https://dev.to/api/articles';
 const CATEGORY_PARAMS: Record<Category, string> = {
   All:      `${BASE}?top=7&per_page=20`,
   AI:       `${BASE}?tag=ai&per_page=20`,
+  Robotics: `${BASE}?tag=robotics&per_page=20`,
   Dev:      `${BASE}?tag=webdev&per_page=20`,
   Startups: `${BASE}?tag=startup&per_page=20`,
   Security: `${BASE}?tag=security&per_page=20`,
   Science:  `${BASE}?tag=science&per_page=20`,
-  Brainrot: `${BASE}?top=7&per_page=20`,  // not used — useFeed bypasses this
   Repos:    `${BASE}?top=7&per_page=20`,  // not used — useFeed bypasses this
 };
 

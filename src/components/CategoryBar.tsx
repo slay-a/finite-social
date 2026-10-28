@@ -5,7 +5,7 @@ import { Category } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { useApp } from '../context/AppContext';
 
-const ALL_CATEGORIES: Category[] = ['All', 'AI', 'Dev', 'Startups', 'Science', 'Repos'];
+const ALL_CATEGORIES: Category[] = ['All', 'AI', 'Robotics', 'Dev', 'Startups', 'Science', 'Repos'];
 
 interface Props {
   active: Category;
@@ -25,7 +25,7 @@ export default function CategoryBar({ active, onChange }: Props) {
       >
         {CATEGORIES.map((cat) => {
           const isActive = cat === active;
-          const color = theme.categoryColors[cat];
+          const color = theme.categoryColors[cat] ?? theme.primary;
           return (
             <TouchableOpacity
               key={cat}
