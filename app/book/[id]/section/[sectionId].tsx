@@ -11,7 +11,7 @@ import SectionCard from '../../../../src/components/SectionCard';
 import { useTheme } from '../../../../src/context/ThemeContext';
 import { useSectionCards } from '../../../../src/hooks/useSectionCards';
 import { fetchSavedCardIds, fetchSection, saveProgress, setCardSaved } from '../../../../src/lib/booksApi';
-import { resolveVoice, speakCard, SpeakController, VoiceGender } from '../../../../src/lib/speech';
+import { prefetchCardAudio, speakCard, SpeakController, VoiceGender } from '../../../../src/lib/speech';
 import { BookSection, SectionCardData } from '../../../../src/types';
 
 export default function SectionFeedScreen() {
@@ -64,13 +64,13 @@ export default function SectionFeedScreen() {
     setPlaying(false);
   }, []);
 
-  const speakFrom = useCallback(async (index: number) => {
+  const speakFrom = useCallback((index: number) => {
     const list = cardsRef.current;
     if (index >= list.length) { setPlaying(false); return; }
     listRef.current?.scrollToIndex({ index, animated: true });
     currentIndexRef.current = index;
-    const voiceId = await resolveVoice(voiceGender);
-    speakRef.current = speakCard(list[index], voiceId, (finished) => {
+    if (list[index + 1]) prefetchCardAudio(list[index + 1], voiceGender);
+    speakRef.current = speakCard(list[index], voiceGender, (finished) => {
       if (finished && playingRef.current) speakFrom(index + 1);
     });
   }, [voiceGender]);
