@@ -6,7 +6,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { getDocumentProxy, extractImages } from 'npm:unpdf@0.12.1';
 import { encode as encodePng } from 'npm:fast-png@6.2.0';
 import { verifyUser, json, corsHeaders } from '../_shared/userAuth.ts';
-import { moderateText } from '../_shared/moderation.ts';
+import { classifyDocument, moderateText } from '../_shared/moderation.ts';
 
 const PAGES_PER_INVOCATION = 50;
 const MAX_FIGURES_PER_PAGE = 3;
@@ -287,6 +287,27 @@ Deno.serve(async (req) => {
           }).eq('id', book.id);
           await sb.storage.from('books').remove([book.file_path]).catch(() => {});
           return json({ done: true, failed: true, error: 'content_rejected' });
+        }
+
+        // Topic gate: adult prose always; political opinion unless it is a
+        // genuine educational treatment (textbook/academic). Fail-open.
+        const docClass = await classifyDocument(sample, moderationKey);
+        if (docClass) {
+          const rejected =
+            docClass.docType === 'adult' ||
+            (docClass.docType === 'political_opinion' && !docClass.educational);
+          if (rejected) {
+            const why = docClass.docType === 'adult'
+              ? 'it contains adult content'
+              : 'it reads as political opinion rather than educational material';
+            await sb.from('books').update({
+              status: 'failed',
+              parse_error: `This upload was rejected: ${why}. Finite Learn supports textbooks, papers, and technical content.`,
+            }).eq('id', book.id);
+            await sb.storage.from('books').remove([book.file_path]).catch(() => {});
+            return json({ done: true, failed: true, error: 'content_rejected' });
+          }
+          await sb.from('books').update({ doc_type: docClass.docType }).eq('id', book.id);
         }
       }
     }

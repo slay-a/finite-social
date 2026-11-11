@@ -17,7 +17,7 @@ interface Props {
   onToggleSave?: (card: SectionCardData, saved: boolean) => void;
 }
 
-type Block = { kind: 'paragraph' | 'bullet' | 'math'; text: string };
+export type Block = { kind: 'paragraph' | 'bullet' | 'math'; text: string };
 
 // The model sometimes packs bullets inline after a colon or sentence. Break
 // them out so the card reads as a list, never a lump.
@@ -27,7 +27,7 @@ function normalizeBody(body: string): string {
     .replace(/\s+-\s+(?=\*\*)/g, '\n- ');
 }
 
-function parseBody(body: string): Block[] {
+export function parseBody(body: string): Block[] {
   return normalizeBody(body)
     .split(/\n+/)
     .map((line) => line.trim())

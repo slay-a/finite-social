@@ -16,7 +16,7 @@ import { BookSection, SectionCardData } from '../../../../src/types';
 
 export default function SectionFeedScreen() {
   const theme = useTheme();
-  const { sectionId } = useLocalSearchParams<{ sectionId: string }>();
+  const { id, sectionId } = useLocalSearchParams<{ id: string; sectionId: string }>();
   const { height: screenH } = useWindowDimensions();
 
   const [section, setSection] = useState<BookSection | null>(null);
@@ -164,6 +164,17 @@ export default function SectionFeedScreen() {
         </TouchableOpacity>
         {status === 'ready' && cards.length > 0 && (
           <View style={s.listenRow} pointerEvents="box-none">
+            <TouchableOpacity
+              style={s.roundBtn}
+              activeOpacity={0.8}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                stopListening();
+                router.push(`/book/${id}/watch/${sectionId}`);
+              }}
+            >
+              <Ionicons name="film-outline" size={19} color={theme.text} />
+            </TouchableOpacity>
             <TouchableOpacity style={s.voiceBtn} onPress={toggleVoice} activeOpacity={0.8}>
               <Text style={s.voiceTxt}>{voiceGender === 'female' ? 'Her voice' : 'His voice'}</Text>
             </TouchableOpacity>

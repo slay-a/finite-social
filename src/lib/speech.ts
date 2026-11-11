@@ -106,6 +106,116 @@ export interface SpeakController {
   stop: () => void;
 }
 
+/** Rough narration length for scheduling scene reveals before audio loads. */
+export function estimateSpokenMs(text: string): number {
+  const words = text.split(/\s+/).filter(Boolean).length;
+  return Math.max(2500, (words / 155) * 60_000);
+}
+
+export interface NarrationCallbacks {
+  onProgress?: (elapsedMs: number, durationMs: number) => void;
+  onDone: (finished: boolean) => void;
+}
+
+export interface NarrationController {
+  pause: () => void;
+  resume: () => void;
+  stop: () => void;
+}
+
+/**
+ * Watch-mode narration: like speakCard but reports playback progress (250ms
+ * ticks) and supports pause/resume. Manual stop never fires onDone.
+ */
+export function playCardNarration(
+  card: SectionCardData,
+  gender: VoiceGender,
+  cbs: NarrationCallbacks,
+): NarrationController {
+  let stopped = false;
+  let paused = false;
+  let usingSystem = false;
+  let player: AudioPlayer | null = null;
+  let sub: { remove: () => void } | null = null;
+  let tick: ReturnType<typeof setInterval> | null = null;
+  let sysElapsed = 0;
+  let sysDuration = 0;
+
+  const cleanup = () => {
+    try { sub?.remove(); } catch {}
+    try { player?.remove(); } catch {}
+    sub = null;
+    player = null;
+    if (tick) { clearInterval(tick); tick = null; }
+  };
+
+  (async () => {
+    await ensureAudioMode();
+    const url = await getAudioUrl(card, gender);
+    if (stopped) return;
+
+    if (url) {
+      try {
+        player = createAudioPlayer({ uri: url }, { updateInterval: 250 });
+        sub = player.addListener('playbackStatusUpdate', (status) => {
+          if (stopped) return;
+          const durationMs = (status.duration ?? 0) * 1000;
+          if (durationMs > 0) cbs.onProgress?.((status.currentTime ?? 0) * 1000, durationMs);
+          if (status.didJustFinish) {
+            stopped = true;
+            cleanup();
+            cbs.onDone(true);
+          }
+        });
+        if (!paused) player.play();
+        return;
+      } catch {
+        cleanup();
+        if (stopped) return;
+      }
+    }
+
+    // Offline fallback: device voice plus a word-count clock for the scenes.
+    usingSystem = true;
+    const text = cardToSpokenText(card);
+    sysDuration = estimateSpokenMs(text);
+    const voiceId = await resolveDeviceVoice(gender);
+    if (stopped) return;
+    Speech.stop();
+    Speech.speak(text, {
+      voice: voiceId,
+      rate: 0.97,
+      onDone: () => { if (!stopped) { stopped = true; cleanup(); cbs.onDone(true); } },
+      onStopped: () => { stopped = true; },
+      onError: () => { stopped = true; },
+    });
+    tick = setInterval(() => {
+      if (stopped || paused) return;
+      sysElapsed = Math.min(sysElapsed + 250, sysDuration);
+      cbs.onProgress?.(sysElapsed, sysDuration);
+    }, 250);
+  })();
+
+  return {
+    pause: () => {
+      paused = true;
+      if (player) { try { player.pause(); } catch {} }
+      else if (usingSystem) { Speech.pause().catch(() => {}); }
+    },
+    resume: () => {
+      paused = false;
+      if (stopped) return;
+      if (player) { try { player.play(); } catch {} }
+      else if (usingSystem) { Speech.resume().catch(() => {}); }
+    },
+    stop: () => {
+      stopped = true;
+      cleanup();
+      Speech.stop();
+    },
+  };
+}
+
 /**
  * Speaks one card (neural mp3 when reachable, device voice offline);
  * calls onDone(true) when it finishes naturally. Manual stop never fires onDone.
