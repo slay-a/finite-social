@@ -1,6 +1,6 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { File } from 'expo-file-system';
-import { Book, BookCardMode, BookSection, SectionCardData } from '../types';
+import { Book, BookCardMode, BookSection, ReelScript, SectionCardData } from '../types';
 import { getSupabase } from './supabase';
 
 // ─── Row mappers ──────────────────────────────────────────────────────────────
@@ -138,6 +138,20 @@ export async function regenerateBook(bookId: string, cardMode: BookCardMode): Pr
   );
   if (error) throw new Error(error.message);
   if (!data?.ok) throw new Error(data?.error ?? 'Regenerate failed');
+}
+
+/**
+ * The Watch-mode screenplay for a section: generated server-side on first ask
+ * (needs the section's cards to exist), then returned from cache forever.
+ * Null means not available (cards not ready, generation failed, offline).
+ */
+export async function fetchReel(sectionId: string): Promise<ReelScript | null> {
+  const { data, error } = await getSupabase().functions.invoke<{ status?: string; script?: ReelScript }>(
+    'generate-reel',
+    { body: { sectionId } },
+  );
+  if (error || !data) return null;
+  return data.status === 'ready' && data.script?.scenes?.length ? data.script : null;
 }
 
 // ─── Saved cards ──────────────────────────────────────────────────────────────

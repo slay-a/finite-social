@@ -89,3 +89,32 @@ export interface Article {
   redditId?: string;
   rssSource?: string;    // publication name e.g. "TechCrunch"
 }
+
+// ── Watch-mode reels ──────────────────────────────────────────────────────────
+export type ReelTone = 'accent' | 'good' | 'bad' | 'neutral';
+
+export interface ReelNode {
+  id: string;
+  label: string;
+  tone: ReelTone;
+  row: number;
+}
+
+export interface ReelEdge {
+  from: string;
+  to: string;
+  label?: string;
+}
+
+export type ReelScene =
+  | { type: 'title'; narration: string; words: string[]; accent: number }
+  | { type: 'points'; narration: string; title: string; points: string[] }
+  | { type: 'diagram'; narration: string; title: string; nodes: ReelNode[]; edges: ReelEdge[] }
+  | { type: 'stat'; narration: string; value: string; label: string }
+  | { type: 'quote'; narration: string; text: string; source?: string }
+  | { type: 'figure'; narration: string; figureCardId: string };
+
+export interface ReelScript {
+  v: number;
+  scenes: ReelScene[];
+}

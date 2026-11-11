@@ -24,11 +24,17 @@ async function ensureAudioMode() {
 
 const urlCache = new Map<string, Promise<string | null>>();
 
-function getAudioUrl(card: SectionCardData, gender: VoiceGender): Promise<string | null> {
-  const key = `${card.id}:${gender}`;
+function cacheKey(text: string, gender: VoiceGender): string {
+  let h = 5381;
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h + text.charCodeAt(i)) | 0;
+  return `${gender}:${h}:${text.length}`;
+}
+
+function getAudioUrl(text: string, gender: VoiceGender): Promise<string | null> {
+  const key = cacheKey(text, gender);
   let pending = urlCache.get(key);
   if (!pending) {
-    pending = fetchAudioUrl(card, gender).catch(() => null);
+    pending = fetchAudioUrl(text, gender).catch(() => null);
     urlCache.set(key, pending);
     // Signed URLs expire after an hour; don't pin a failure or stale URL forever.
     pending.then((url) => {
@@ -39,17 +45,21 @@ function getAudioUrl(card: SectionCardData, gender: VoiceGender): Promise<string
   return pending;
 }
 
-async function fetchAudioUrl(card: SectionCardData, gender: VoiceGender): Promise<string | null> {
+async function fetchAudioUrl(text: string, gender: VoiceGender): Promise<string | null> {
   const { data, error } = await getSupabase().functions.invoke<{ url?: string }>('tts', {
-    body: { text: cardToSpokenText(card), voice: gender },
+    body: { text, voice: gender },
   });
   if (error || !data?.url) return null;
   return data.url;
 }
 
-/** Warm the cache for the card that plays next, so playback never gaps. */
+/** Warm the cache for narration that plays next, so playback never gaps. */
+export function prefetchNarration(text: string, gender: VoiceGender): void {
+  getAudioUrl(text, gender);
+}
+
 export function prefetchCardAudio(card: SectionCardData, gender: VoiceGender): void {
-  getAudioUrl(card, gender);
+  prefetchNarration(cardToSpokenText(card), gender);
 }
 
 // ── Device-voice fallback ────────────────────────────────────────────────────
@@ -123,12 +133,20 @@ export interface NarrationController {
   stop: () => void;
 }
 
+export function playCardNarration(
+  card: SectionCardData,
+  gender: VoiceGender,
+  cbs: NarrationCallbacks,
+): NarrationController {
+  return playNarration(cardToSpokenText(card), gender, cbs);
+}
+
 /**
  * Watch-mode narration: like speakCard but reports playback progress (250ms
  * ticks) and supports pause/resume. Manual stop never fires onDone.
  */
-export function playCardNarration(
-  card: SectionCardData,
+export function playNarration(
+  text: string,
   gender: VoiceGender,
   cbs: NarrationCallbacks,
 ): NarrationController {
@@ -143,6 +161,9 @@ export function playCardNarration(
 
   const cleanup = () => {
     try { sub?.remove(); } catch {}
+    // Pause before releasing: on iOS, removing a playing player can leave the
+    // audio running detached, which is how sound survived leaving the screen.
+    try { player?.pause(); } catch {}
     try { player?.remove(); } catch {}
     sub = null;
     player = null;
@@ -151,7 +172,7 @@ export function playCardNarration(
 
   (async () => {
     await ensureAudioMode();
-    const url = await getAudioUrl(card, gender);
+    const url = await getAudioUrl(text, gender);
     if (stopped) return;
 
     if (url) {
@@ -177,7 +198,6 @@ export function playCardNarration(
 
     // Offline fallback: device voice plus a word-count clock for the scenes.
     usingSystem = true;
-    const text = cardToSpokenText(card);
     sysDuration = estimateSpokenMs(text);
     const voiceId = await resolveDeviceVoice(gender);
     if (stopped) return;
@@ -231,6 +251,7 @@ export function speakCard(
 
   const cleanup = () => {
     try { sub?.remove(); } catch {}
+    try { player?.pause(); } catch {}
     try { player?.remove(); } catch {}
     sub = null;
     player = null;
@@ -238,7 +259,7 @@ export function speakCard(
 
   (async () => {
     await ensureAudioMode();
-    const url = await getAudioUrl(card, gender);
+    const url = await getAudioUrl(cardToSpokenText(card), gender);
     if (stopped) return;
 
     if (url) {

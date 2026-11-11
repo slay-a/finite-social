@@ -29,7 +29,9 @@ Deno.serve(async (req) => {
   const sectionIds = (sections ?? []).map((s) => s.id);
   if (sectionIds.length > 0) {
     await sb.from('section_cards').delete().in('section_id', sectionIds);
-    await sb.from('book_sections').update({ card_status: 'none' }).eq('book_id', book_id);
+    await sb.from('book_sections')
+      .update({ card_status: 'none', reel_script: null, reel_status: null })
+      .eq('book_id', book_id);
     // Positions no longer map onto the new cards.
     await sb.from('reading_progress').delete().in('section_id', sectionIds);
   }

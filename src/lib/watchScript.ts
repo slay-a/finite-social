@@ -54,6 +54,23 @@ export function buildScenePlan(card: SectionCardData): SceneElement[] {
   return elements;
 }
 
+export interface WordTiming {
+  word: string;
+  at: number;
+}
+
+/** When each word of the narration is (approximately) spoken, for captions. */
+export function wordTimings(narration: string, durationMs: number): WordTiming[] {
+  const words = narration.split(/\s+/).filter(Boolean);
+  const total = words.reduce((sum, w) => sum + w.length + 1, 0) || 1;
+  let cumulative = 0;
+  return words.map((word) => {
+    const at = (cumulative / total) * durationMs * 0.96;
+    cumulative += word.length + 1;
+    return { word, at };
+  });
+}
+
 /** Map of element key -> reveal time in ms, spread across the narration. */
 export function scheduleFor(plan: SceneElement[], durationMs: number): Record<string, number> {
   const total = plan.reduce((sum, el) => sum + el.weight, 0) || 1;

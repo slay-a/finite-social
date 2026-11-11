@@ -8,15 +8,20 @@ import * as Haptics from 'expo-haptics';
 import { useKeepAwake } from 'expo-keep-awake';
 import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
+import ReelSceneView, { CaptionBar } from '../../../../src/components/ReelSceneView';
 import WatchScene from '../../../../src/components/WatchScene';
 import { useTheme } from '../../../../src/context/ThemeContext';
 import { useSectionCards } from '../../../../src/hooks/useSectionCards';
-import { fetchSection, saveProgress } from '../../../../src/lib/booksApi';
+import { fetchReel, fetchSection, saveProgress } from '../../../../src/lib/booksApi';
 import {
   NarrationController, VoiceGender, cardToSpokenText, estimateSpokenMs,
-  playCardNarration, prefetchCardAudio,
+  playNarration, prefetchNarration,
 } from '../../../../src/lib/speech';
-import { BookSection, SectionCardData } from '../../../../src/types';
+import { BookSection, ReelScene, ReelScript, SectionCardData } from '../../../../src/types';
+
+type ReelItem =
+  | { kind: 'scene'; scene: ReelScene; key: string }
+  | { kind: 'card'; card: SectionCardData; key: string };
 
 export default function WatchScreen() {
   const theme = useTheme();
@@ -26,6 +31,17 @@ export default function WatchScreen() {
 
   const [section, setSection] = useState<BookSection | null>(null);
   const { cards, status, retry } = useSectionCards(sectionId);
+
+  // Reel script: undefined = still asking the director, null = fall back to cards.
+  const [reel, setReel] = useState<ReelScript | null | undefined>(undefined);
+  useEffect(() => {
+    if (status !== 'ready' || !sectionId) return;
+    let alive = true;
+    fetchReel(sectionId)
+      .then((script) => { if (alive) setReel(script); })
+      .catch(() => { if (alive) setReel(null); });
+    return () => { alive = false; };
+  }, [status, sectionId]);
 
   const sceneHRef = useRef(screenH);
   const [sceneH, setSceneH] = useState(screenH);
@@ -38,8 +54,27 @@ export default function WatchScreen() {
     if (sectionId) fetchSection(sectionId).then(setSection);
   }, [sectionId]);
 
+  const items: ReelItem[] = useMemo(() => {
+    if (reel?.scenes?.length) {
+      return reel.scenes.map((scene, i) => ({ kind: 'scene' as const, scene, key: `s${i}` }));
+    }
+    if (reel === null) {
+      return cards.map((card) => ({ kind: 'card' as const, card, key: card.id }));
+    }
+    return [];
+  }, [reel, cards]);
+
+  const figureCardById = useMemo(() => {
+    const map = new Map<string, SectionCardData>();
+    cards.forEach((c) => { if (c.kind === 'figure') map.set(c.id, c); });
+    return map;
+  }, [cards]);
+
+  const narrationFor = useCallback((item: ReelItem) =>
+    item.kind === 'scene' ? item.scene.narration : cardToSpokenText(item.card), []);
+
   // ── Playback state ──────────────────────────────────────────────────────────
-  const listRef = useRef<FlatList<SectionCardData>>(null);
+  const listRef = useRef<FlatList<ReelItem>>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [elapsed, setElapsed] = useState(0);
   const [duration, setDuration] = useState(1);
@@ -55,37 +90,43 @@ export default function WatchScreen() {
   activeIndexRef.current = activeIndex;
   const maxIndexRef = useRef(0);
 
+  const itemsRef = useRef<ReelItem[]>([]);
+  itemsRef.current = items;
   const cardsRef = useRef<SectionCardData[]>([]);
   cardsRef.current = cards;
 
   const goTo = useCallback((next: number) => {
     if (advanceTimer.current) { clearTimeout(advanceTimer.current); advanceTimer.current = null; }
-    const list = cardsRef.current;
+    const list = itemsRef.current;
     if (next < 0) return;
     if (next >= list.length) { setEnded(true); return; }
     setActiveIndex(next);
     listRef.current?.scrollToIndex({ index: next, animated: true });
   }, []);
 
-  // Narration for the active scene; restarts on card change or voice change.
+  // Narration for the active item; restarts on item change or voice change.
   useEffect(() => {
-    if (status !== 'ready' || cards.length === 0 || ended) return;
-    const card = cards[activeIndex];
-    if (!card) return;
+    if (items.length === 0 || ended) return;
+    const item = items[activeIndex];
+    if (!item) return;
     if (activeIndex > maxIndexRef.current) maxIndexRef.current = activeIndex;
+    const text = narrationFor(item);
     setElapsed(0);
-    setDuration(estimateSpokenMs(cardToSpokenText(card)));
+    setDuration(estimateSpokenMs(text));
     setFinished(false);
     setPaused(false);
-    if (cards[activeIndex + 1]) prefetchCardAudio(cards[activeIndex + 1], voiceGender);
+    const next = items[activeIndex + 1];
+    if (next) prefetchNarration(narrationFor(next), voiceGender);
 
-    const ctrl = playCardNarration(card, voiceGender, {
+    const ctrl = playNarration(text, voiceGender, {
       onProgress: (e, d) => { setElapsed(e); setDuration(d); },
       onDone: (ok) => {
         if (!ok) return;
         setFinished(true);
         setElapsed(Number.MAX_SAFE_INTEGER); // every reveal lands
-        const dwell = card.kind === 'quiz' ? 4000 : 1000;
+        const dwell = item.kind === 'card' && item.card.kind === 'quiz' ? 4000
+          : item.kind === 'card' ? 1000
+          : 600;
         advanceTimer.current = setTimeout(() => goTo(activeIndexRef.current + 1), dwell);
       },
     });
@@ -96,7 +137,7 @@ export default function WatchScreen() {
       if (advanceTimer.current) { clearTimeout(advanceTimer.current); advanceTimer.current = null; }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIndex, voiceGender, status, cards.length === 0, ended, replayNonce]);
+  }, [activeIndex, voiceGender, items, ended, replayNonce]);
 
   // Manual swipes retarget the narration.
   const onViewableItemsChanged = useRef(
@@ -109,10 +150,20 @@ export default function WatchScreen() {
   ).current;
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 80 }).current;
 
+  const endedRef = useRef(false);
+  endedRef.current = ended;
+  const reelModeRef = useRef(false);
+  reelModeRef.current = !!reel?.scenes?.length;
+
   useEffect(() => {
     return () => {
-      if (sectionId && cardsRef.current.length > 0) {
-        const total = cardsRef.current.length;
+      if (!sectionId || cardsRef.current.length === 0) return;
+      const total = cardsRef.current.length;
+      if (reelModeRef.current) {
+        // Scene count differs from card count: finishing the reel reads the
+        // whole section, partial progress maps to nothing, so save only "done".
+        if (endedRef.current) saveProgress(sectionId, total - 1, true).catch(() => {});
+      } else {
         saveProgress(sectionId, maxIndexRef.current, maxIndexRef.current >= total - 1).catch(() => {});
       }
     };
@@ -147,29 +198,41 @@ export default function WatchScreen() {
     : '';
 
   const renderItem = useCallback(
-    ({ item, index }: { item: SectionCardData; index: number }) => (
+    ({ item, index }: { item: ReelItem; index: number }) => (
       <Pressable
         onPress={(e) => onSceneTap(e.nativeEvent.locationX)}
         onLongPress={() => togglePauseHold(true)}
         onPressOut={() => { if (paused) togglePauseHold(false); }}
         delayLongPress={180}
       >
-        <WatchScene
-          card={item}
-          height={sceneHRef.current}
-          sectionLabel={sectionLabel}
-          elapsedMs={index === activeIndex ? elapsed : 0}
-          durationMs={index === activeIndex ? duration : estimateSpokenMs(cardToSpokenText(item))}
-          active={index === activeIndex}
-          revealAnswer={index === activeIndex && finished}
-        />
+        {item.kind === 'scene' ? (
+          <ReelSceneView
+            scene={item.scene}
+            figureCard={item.scene.type === 'figure' ? figureCardById.get(item.scene.figureCardId) : undefined}
+            height={sceneHRef.current}
+            width={screenW}
+            elapsedMs={index === activeIndex ? elapsed : 0}
+            durationMs={index === activeIndex ? duration : estimateSpokenMs(item.scene.narration)}
+            active={index === activeIndex}
+          />
+        ) : (
+          <WatchScene
+            card={item.card}
+            height={sceneHRef.current}
+            sectionLabel={sectionLabel}
+            elapsedMs={index === activeIndex ? elapsed : 0}
+            durationMs={index === activeIndex ? duration : estimateSpokenMs(cardToSpokenText(item.card))}
+            active={index === activeIndex}
+            revealAnswer={index === activeIndex && finished}
+          />
+        )}
       </Pressable>
     ),
-    [sectionLabel, activeIndex, elapsed, duration, finished, paused, onSceneTap, togglePauseHold],
+    [sectionLabel, activeIndex, elapsed, duration, finished, paused, onSceneTap, togglePauseHold, figureCardById, screenW],
   );
 
   const getItemLayout = useCallback(
-    (_: ArrayLike<SectionCardData> | null | undefined, index: number) => ({
+    (_: ArrayLike<ReelItem> | null | undefined, index: number) => ({
       length: sceneHRef.current, offset: sceneHRef.current * index, index,
     }),
     [],
@@ -186,6 +249,7 @@ export default function WatchScreen() {
     voiceBtn:  { margin: 6, height: 38, borderRadius: 19, backgroundColor: `${theme.surface}EE`, borderWidth: 1, borderColor: theme.border, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
     voiceTxt:  { fontSize: 12, fontWeight: '700', color: theme.textSub },
     feed:      { flex: 1 },
+    captions:  { position: 'absolute', left: 0, right: 0, bottom: 34, zIndex: 8 },
     centered:  { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, padding: 32 },
     waitTitle: { fontSize: 16, fontWeight: '700', color: theme.text },
     waitText:  { fontSize: 13, color: theme.textMuted, textAlign: 'center', lineHeight: 19 },
@@ -200,18 +264,24 @@ export default function WatchScreen() {
     endBtnTxt: { fontSize: 14, fontWeight: '700', color: theme.text },
   }), [theme]);
 
+  const activeItem = items[activeIndex];
+  const waiting = status === 'loading' || status === 'generating'
+    || (status === 'ready' && reel === undefined);
+
   return (
     <View style={s.container}>
       <View style={s.feed} onLayout={onListLayout}>
-        {status === 'loading' || status === 'generating' ? (
+        {waiting ? (
           <View style={s.centered}>
             <ActivityIndicator color={theme.primary} />
             <Text style={s.waitTitle}>
-              {status === 'generating' ? 'Writing this section…' : 'Loading…'}
+              {status === 'generating' ? 'Writing this section…'
+                : status === 'ready' ? 'Directing this reel…'
+                : 'Loading…'}
             </Text>
-            {status === 'generating' && (
+            {(status === 'generating' || status === 'ready') && (
               <Text style={s.waitText}>
-                First visit to a section takes a few seconds. After that it loads instantly.
+                First visit takes a few seconds. After that it plays instantly.
               </Text>
             )}
           </View>
@@ -226,9 +296,9 @@ export default function WatchScreen() {
         ) : (
           <FlatList
             ref={listRef}
-            data={cards}
+            data={items}
             renderItem={renderItem}
-            keyExtractor={(c) => c.id}
+            keyExtractor={(it) => it.key}
             getItemLayout={getItemLayout}
             pagingEnabled
             showsVerticalScrollIndicator={false}
@@ -243,11 +313,21 @@ export default function WatchScreen() {
         )}
       </View>
 
+      {activeItem?.kind === 'scene' && !ended && (
+        <View style={s.captions} pointerEvents="none">
+          <CaptionBar
+            narration={activeItem.scene.narration}
+            elapsedMs={elapsed}
+            durationMs={duration}
+          />
+        </View>
+      )}
+
       <SafeAreaView edges={['top']} style={s.topBar} pointerEvents="box-none">
-        {status === 'ready' && cards.length > 0 && (
+        {items.length > 0 && !waiting && status !== 'failed' && (
           <View style={s.segments}>
-            {cards.map((c, i) => (
-              <View key={c.id} style={s.segment}>
+            {items.map((it, i) => (
+              <View key={it.key} style={s.segment}>
                 <View
                   style={[s.segFill, {
                     width: i < activeIndex ? '100%'
@@ -271,7 +351,7 @@ export default function WatchScreen() {
 
       {paused && (
         <View style={s.pausedTag} pointerEvents="none">
-          <Text style={s.pausedTxt}>Paused — release to continue</Text>
+          <Text style={s.pausedTxt}>Paused. Release to continue</Text>
         </View>
       )}
 

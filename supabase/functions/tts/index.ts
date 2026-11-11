@@ -11,10 +11,15 @@ const MAX_INPUT_CHARS = 4000;
 const SIGNED_URL_TTL = 3600;
 const BUCKET = 'tts';
 
+// Bump INSTR_VERSION whenever INSTRUCTIONS changes: it is part of the cache
+// hash, so old clips with the old delivery are left behind and regenerate.
+const INSTR_VERSION = 'v2';
 const INSTRUCTIONS =
-  'Narrate like a warm, engaged audiobook narrator reading to a curious listener. ' +
-  'Natural pacing with brief pauses between sentences and ideas. Vary your intonation ' +
-  'with the meaning of the text. Clear and expressive, never flat or rushed.';
+  'You are an excited, charismatic explainer, like a great science communicator ' +
+  'telling a friend about something genuinely fascinating. Energetic and warm. ' +
+  'Emphasize the key words, lift your pitch on surprising facts, slow down for the ' +
+  'one idea that matters most, and let your enthusiasm show. Conversational, never ' +
+  'formal, never flat, never monotone. Brisk pacing with natural pauses.';
 
 async function sha256Hex(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
@@ -45,7 +50,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    const path = `${await sha256Hex(`${TTS_MODEL}:${voiceName}\n${input}`)}.mp3`;
+    const path = `${await sha256Hex(`${TTS_MODEL}:${voiceName}:${INSTR_VERSION}\n${input}`)}.mp3`;
 
     // Cache hit: the clip was synthesized before, just re-sign it.
     const cached = await sb.storage.from(BUCKET).createSignedUrl(path, SIGNED_URL_TTL);
